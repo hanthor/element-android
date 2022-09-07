@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Timeline bubble background colors -->
+    <attr name="vctr_message_bubble_inbound" format="color" />
+    <color name="vctr_message_bubble_inbound_light">@color/material_dynamic_secondary90</color>
+    <color name="vctr_message_bubble_inbound_dark">@color/material_dynamic_secondary30</color>
+    <attr name="vctr_message_bubble_outbound" format="color" />
+    <color name="vctr_message_bubble_outbound_light">@color/material_dynamic_primary90</color>
+    <color name="vctr_message_bubble_outbound_dark">@color/material_dynamic_primary30</color>
+</resources>
