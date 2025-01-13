@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2020 New Vector Ltd
+ * Copyright 2020-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.settings.threepids
@@ -22,39 +13,32 @@ import com.airbnb.mvrx.MavericksViewModelFactory
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
-import im.vector.app.R
 import im.vector.app.core.di.MavericksAssistedViewModelFactory
 import im.vector.app.core.di.hiltMavericksViewModelFactory
 import im.vector.app.core.platform.VectorViewModel
 import im.vector.app.core.resources.StringProvider
 import im.vector.app.core.utils.ReadOnceTrue
-import im.vector.app.features.auth.ReAuthActivity
+import im.vector.app.features.auth.PendingAuthHandler
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.launch
-import org.matrix.android.sdk.api.Matrix
 import org.matrix.android.sdk.api.auth.UIABaseAuth
 import org.matrix.android.sdk.api.auth.UserInteractiveAuthInterceptor
-import org.matrix.android.sdk.api.auth.UserPasswordAuth
 import org.matrix.android.sdk.api.auth.registration.RegistrationFlowResponse
 import org.matrix.android.sdk.api.session.Session
 import org.matrix.android.sdk.api.session.identity.ThreePid
 import org.matrix.android.sdk.api.session.uia.DefaultBaseAuth
-import org.matrix.android.sdk.api.util.fromBase64
 import org.matrix.android.sdk.flow.flow
-import timber.log.Timber
 import kotlin.coroutines.Continuation
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 class ThreePidsSettingsViewModel @AssistedInject constructor(
         @Assisted initialState: ThreePidsSettingsViewState,
         private val session: Session,
         private val stringProvider: StringProvider,
-        private val matrix: Matrix,
+        private val pendingAuthHandler: PendingAuthHandler,
 ) : VectorViewModel<ThreePidsSettingsViewState, ThreePidsSettingsAction, ThreePidsSettingsViewEvents>(initialState) {
 
     // UIA session
     private var pendingThreePid: ThreePid? = null
-//    private var pendingSession: String? = null
 
     private suspend fun loadingSuspendable(block: suspend () -> Unit) {
         runCatching { block() }
@@ -126,42 +110,17 @@ class ThreePidsSettingsViewModel @AssistedInject constructor(
             is ThreePidsSettingsAction.CancelThreePid -> handleCancelThreePid(action)
             is ThreePidsSettingsAction.DeleteThreePid -> handleDeleteThreePid(action)
             is ThreePidsSettingsAction.ChangeUiState -> handleChangeUiState(action)
-            ThreePidsSettingsAction.SsoAuthDone -> {
-                Timber.d("## UIA - FallBack success")
-                if (pendingAuth != null) {
-                    uiaContinuation?.resume(pendingAuth!!)
-                } else {
-                    uiaContinuation?.resumeWithException(IllegalArgumentException())
-                }
-            }
-            is ThreePidsSettingsAction.PasswordAuthDone -> {
-                val decryptedPass = matrix.secureStorageService()
-                        .loadSecureSecret<String>(action.password.fromBase64().inputStream(), ReAuthActivity.DEFAULT_RESULT_KEYSTORE_ALIAS)
-                uiaContinuation?.resume(
-                        UserPasswordAuth(
-                                session = pendingAuth?.session,
-                                password = decryptedPass,
-                                user = session.myUserId
-                        )
-                )
-            }
-            ThreePidsSettingsAction.ReAuthCancelled -> {
-                Timber.d("## UIA - Reauth cancelled")
-                uiaContinuation?.resumeWithException(Exception())
-                uiaContinuation = null
-                pendingAuth = null
-            }
+            ThreePidsSettingsAction.SsoAuthDone -> pendingAuthHandler.ssoAuthDone()
+            is ThreePidsSettingsAction.PasswordAuthDone -> pendingAuthHandler.passwordAuthDone(action.password)
+            ThreePidsSettingsAction.ReAuthCancelled -> pendingAuthHandler.reAuthCancelled()
         }
     }
-
-    var uiaContinuation: Continuation<UIABaseAuth>? = null
-    var pendingAuth: UIABaseAuth? = null
 
     private val uiaInterceptor = object : UserInteractiveAuthInterceptor {
         override fun performStage(flowResponse: RegistrationFlowResponse, errCode: String?, promise: Continuation<UIABaseAuth>) {
             _viewEvents.post(ThreePidsSettingsViewEvents.RequestReAuth(flowResponse, errCode))
-            pendingAuth = DefaultBaseAuth(session = flowResponse.session)
-            uiaContinuation = promise
+            pendingAuthHandler.pendingAuth = DefaultBaseAuth(session = flowResponse.session)
+            pendingAuthHandler.uiaContinuation = promise
         }
     }
 
@@ -217,8 +176,8 @@ class ThreePidsSettingsViewModel @AssistedInject constructor(
                                 IllegalArgumentException(
                                         stringProvider.getString(
                                                 when (action.threePid) {
-                                                    is ThreePid.Email -> R.string.auth_email_already_defined
-                                                    is ThreePid.Msisdn -> R.string.auth_msisdn_already_defined
+                                                    is ThreePid.Email -> CommonStrings.auth_email_already_defined
+                                                    is ThreePid.Msisdn -> CommonStrings.auth_msisdn_already_defined
                                                 }
                                         )
                                 )

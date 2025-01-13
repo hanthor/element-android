@@ -4,6 +4,8 @@ plugins {
 }
 
 android {
+    namespace "im.vector.app.config"
+
     compileSdk versions.compileSdk
 
     defaultConfig {
@@ -16,6 +18,6 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = versions.jvmTarget
     }
 }

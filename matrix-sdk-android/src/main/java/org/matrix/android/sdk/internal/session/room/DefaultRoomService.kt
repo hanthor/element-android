@@ -17,7 +17,7 @@
 package org.matrix.android.sdk.internal.session.room
 
 import androidx.lifecycle.LiveData
-import androidx.lifecycle.Transformations
+import androidx.lifecycle.map
 import androidx.paging.PagedList
 import com.zhuinden.monarchy.Monarchy
 import org.matrix.android.sdk.api.session.events.model.Event
@@ -29,10 +29,12 @@ import org.matrix.android.sdk.api.session.room.RoomSummaryQueryParams
 import org.matrix.android.sdk.api.session.room.UpdatableLivePageResult
 import org.matrix.android.sdk.api.session.room.alias.RoomAliasDescription
 import org.matrix.android.sdk.api.session.room.members.ChangeMembershipState
+import org.matrix.android.sdk.api.session.room.model.LocalRoomSummary
 import org.matrix.android.sdk.api.session.room.model.Membership
 import org.matrix.android.sdk.api.session.room.model.RoomMemberSummary
 import org.matrix.android.sdk.api.session.room.model.RoomSummary
 import org.matrix.android.sdk.api.session.room.model.create.CreateRoomParams
+import org.matrix.android.sdk.api.session.room.model.localecho.RoomLocalEcho
 import org.matrix.android.sdk.api.session.room.peeking.PeekResult
 import org.matrix.android.sdk.api.session.room.roomSummaryQueryParams
 import org.matrix.android.sdk.api.session.room.summary.RoomAggregateNotificationCount
@@ -106,6 +108,10 @@ internal class DefaultRoomService @Inject constructor(
         return roomSummaryDataSource.getRoomSummaryLive(roomId)
     }
 
+    override fun getLocalRoomSummaryLive(roomId: String): LiveData<Optional<LocalRoomSummary>> {
+        return roomSummaryDataSource.getLocalRoomSummaryLive(roomId)
+    }
+
     override fun getRoomSummaries(
             queryParams: RoomSummaryQueryParams,
             sortOrder: RoomSortOrder
@@ -148,6 +154,12 @@ internal class DefaultRoomService @Inject constructor(
         return roomSummaryDataSource.getSortedPagedRoomSummariesLive(queryParams, pagedListConfig, sortOrder)
     }
 
+    override fun roomSummariesChangesLive(
+            queryParams: RoomSummaryQueryParams,
+            sortOrder: RoomSortOrder): LiveData<List<Unit>> {
+        return roomSummaryDataSource.getRoomSummariesChangesLive(queryParams, sortOrder)
+    }
+
     override fun getFilteredPagedRoomSummariesLive(
             queryParams: RoomSummaryQueryParams,
             pagedListConfig: PagedList.Config,
@@ -173,7 +185,10 @@ internal class DefaultRoomService @Inject constructor(
     }
 
     override suspend fun onRoomDisplayed(roomId: String) {
-        updateBreadcrumbsTask.execute(UpdateBreadcrumbsTask.Params(roomId))
+        // Do not add local rooms to the recent rooms list as they should not be known by the server
+        if (!RoomLocalEcho.isLocalEchoId(roomId)) {
+            updateBreadcrumbsTask.execute(UpdateBreadcrumbsTask.Params(roomId))
+        }
     }
 
     override suspend fun joinRoom(roomIdOrAlias: String, reason: String?, viaServers: List<String>) {
@@ -227,7 +242,7 @@ internal class DefaultRoomService @Inject constructor(
                 },
                 { it.asDomain() }
         )
-        return Transformations.map(liveData) { results ->
+        return liveData.map { results ->
             results.firstOrNull().toOptional()
         }
     }

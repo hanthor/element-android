@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.settings.notifications
@@ -38,7 +29,11 @@ fun getStandardAction(ruleId: String, index: NotificationIndex): StandardActions
                 NotificationIndex.SILENT -> StandardActions.Notify
                 NotificationIndex.NOISY -> StandardActions.Highlight
             }
-        RuleIds.RULE_ID_ONE_TO_ONE_ROOM ->
+        RuleIds.RULE_ID_ONE_TO_ONE_ROOM,
+        RuleIds.RULE_ID_POLL_START_ONE_TO_ONE,
+        RuleIds.RULE_ID_POLL_START_ONE_TO_ONE_UNSTABLE,
+        RuleIds.RULE_ID_POLL_END_ONE_TO_ONE,
+        RuleIds.RULE_ID_POLL_END_ONE_TO_ONE_UNSTABLE ->
             when (index) {
                 NotificationIndex.OFF -> StandardActions.DontNotify
                 NotificationIndex.SILENT -> StandardActions.Notify
@@ -50,7 +45,11 @@ fun getStandardAction(ruleId: String, index: NotificationIndex): StandardActions
                 NotificationIndex.SILENT -> StandardActions.Notify
                 NotificationIndex.NOISY -> StandardActions.NotifyDefaultSound
             }
-        RuleIds.RULE_ID_ALL_OTHER_MESSAGES_ROOMS ->
+        RuleIds.RULE_ID_ALL_OTHER_MESSAGES_ROOMS,
+        RuleIds.RULE_ID_POLL_START,
+        RuleIds.RULE_ID_POLL_START_UNSTABLE,
+        RuleIds.RULE_ID_POLL_END,
+        RuleIds.RULE_ID_POLL_END_UNSTABLE ->
             when (index) {
                 NotificationIndex.OFF -> StandardActions.DontNotify
                 NotificationIndex.SILENT -> StandardActions.Notify

@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.signout.soft
@@ -32,6 +23,7 @@ import im.vector.app.core.di.SingletonEntryPoint
 import im.vector.app.core.di.hiltMavericksViewModelFactory
 import im.vector.app.core.extensions.hasUnsavedKeys
 import im.vector.app.core.platform.VectorViewModel
+import im.vector.app.features.displayname.getBestName
 import im.vector.app.features.login.LoginMode
 import im.vector.app.features.login.toSsoState
 import kotlinx.coroutines.launch
@@ -39,7 +31,8 @@ import org.matrix.android.sdk.api.auth.AuthenticationService
 import org.matrix.android.sdk.api.auth.LoginType
 import org.matrix.android.sdk.api.auth.data.LoginFlowTypes
 import org.matrix.android.sdk.api.session.Session
-import org.matrix.android.sdk.api.session.getUser
+import org.matrix.android.sdk.api.session.getUserOrDefault
+import org.matrix.android.sdk.api.util.toMatrixItem
 import timber.log.Timber
 
 class SoftLogoutViewModel @AssistedInject constructor(
@@ -68,8 +61,8 @@ class SoftLogoutViewModel @AssistedInject constructor(
                         homeServerUrl = session.sessionParams.homeServerUrl,
                         userId = userId,
                         deviceId = session.sessionParams.deviceId.orEmpty(),
-                        userDisplayName = session.getUser(userId)?.displayName ?: userId,
-                        hasUnsavedKeys = session.hasUnsavedKeys(),
+                        userDisplayName = session.getUserOrDefault(userId).toMatrixItem().getBestName(),
+                        hasUnsavedKeys = Loading(),
                         loginType = session.sessionParams.loginType,
                 )
             } else {
@@ -78,7 +71,7 @@ class SoftLogoutViewModel @AssistedInject constructor(
                         userId = "",
                         deviceId = "",
                         userDisplayName = "",
-                        hasUnsavedKeys = false,
+                        hasUnsavedKeys = Success(false),
                         loginType = LoginType.UNKNOWN,
                 )
             }
@@ -86,8 +79,17 @@ class SoftLogoutViewModel @AssistedInject constructor(
     }
 
     init {
+        checkHasUnsavedKeys()
         // Get the supported login flow
         getSupportedLoginFlow()
+    }
+
+    private fun checkHasUnsavedKeys() {
+        suspend {
+            session.hasUnsavedKeys()
+        }.execute {
+            copy(hasUnsavedKeys = it)
+        }
     }
 
     private fun getSupportedLoginFlow() {
@@ -116,8 +118,11 @@ class SoftLogoutViewModel @AssistedInject constructor(
             val loginMode = when {
                 // SSO login is taken first
                 data.supportedLoginTypes.contains(LoginFlowTypes.SSO) &&
-                        data.supportedLoginTypes.contains(LoginFlowTypes.PASSWORD) -> LoginMode.SsoAndPassword(data.ssoIdentityProviders.toSsoState())
-                data.supportedLoginTypes.contains(LoginFlowTypes.SSO) -> LoginMode.Sso(data.ssoIdentityProviders.toSsoState())
+                        data.supportedLoginTypes.contains(LoginFlowTypes.PASSWORD) -> LoginMode.SsoAndPassword(
+                            data.ssoIdentityProviders.toSsoState(),
+                            data.hasOidcCompatibilityFlow
+                        )
+                data.supportedLoginTypes.contains(LoginFlowTypes.SSO) -> LoginMode.Sso(data.ssoIdentityProviders.toSsoState(), data.hasOidcCompatibilityFlow)
                 data.supportedLoginTypes.contains(LoginFlowTypes.PASSWORD) -> LoginMode.Password
                 else -> LoginMode.Unsupported
             }

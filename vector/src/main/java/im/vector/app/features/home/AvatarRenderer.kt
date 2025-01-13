@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home
@@ -41,8 +32,11 @@ import im.vector.app.core.glide.AvatarPlaceholder
 import im.vector.app.core.glide.GlideApp
 import im.vector.app.core.glide.GlideRequest
 import im.vector.app.core.glide.GlideRequests
+import im.vector.app.core.resources.StringProvider
 import im.vector.app.core.utils.DimensionConverter
+import im.vector.app.features.displayname.getBestName
 import im.vector.app.features.home.room.detail.timeline.helper.MatrixItemColorProvider
+import im.vector.lib.strings.CommonStrings
 import jp.wasabeef.glide.transformations.BlurTransformation
 import jp.wasabeef.glide.transformations.ColorFilterTransformation
 import org.matrix.android.sdk.api.auth.login.LoginProfileInfo
@@ -58,7 +52,8 @@ import javax.inject.Inject
 class AvatarRenderer @Inject constructor(
         private val activeSessionHolder: ActiveSessionHolder,
         private val matrixItemColorProvider: MatrixItemColorProvider,
-        private val dimensionConverter: DimensionConverter
+        private val dimensionConverter: DimensionConverter,
+        private val stringProvider: StringProvider,
 ) {
 
     companion object {
@@ -67,6 +62,7 @@ class AvatarRenderer @Inject constructor(
 
     @UiThread
     fun render(matrixItem: MatrixItem, imageView: ImageView) {
+        imageView.setContentDescription(matrixItem)
         render(
                 GlideApp.with(imageView),
                 matrixItem,
@@ -100,6 +96,7 @@ class AvatarRenderer @Inject constructor(
 
     @UiThread
     fun render(matrixItem: MatrixItem, imageView: ImageView, glideRequests: GlideRequests) {
+        imageView.setContentDescription(matrixItem)
         render(
                 glideRequests,
                 matrixItem,
@@ -109,6 +106,7 @@ class AvatarRenderer @Inject constructor(
 
     @UiThread
     fun render(matrixItem: MatrixItem, localUri: Uri?, imageView: ImageView) {
+        imageView.setContentDescription(matrixItem)
         val placeholder = getPlaceholderDrawable(matrixItem)
         GlideApp.with(imageView)
                 .load(localUri?.let { File(localUri.path!!) })
@@ -294,5 +292,29 @@ class AvatarRenderer @Inject constructor(
     private fun resolvedUrl(avatarUrl: String?): String? {
         return activeSessionHolder.getSafeActiveSession()?.contentUrlResolver()
                 ?.resolveThumbnail(avatarUrl, THUMBNAIL_SIZE, THUMBNAIL_SIZE, ContentUrlResolver.ThumbnailMethod.SCALE)
+    }
+
+    /**
+     * Accessibility management.
+     */
+    private fun ImageView.setContentDescription(matrixItem: MatrixItem) {
+        // Do not set contentDescription if the ImageView should be ignored regarding accessibility.
+        if (isImportantForAccessibility.not()) return
+        when (matrixItem) {
+            is MatrixItem.SpaceItem -> {
+                contentDescription = stringProvider.getString(CommonStrings.avatar_of_space, matrixItem.getBestName())
+            }
+            is MatrixItem.RoomAliasItem,
+            is MatrixItem.RoomItem -> {
+                contentDescription = stringProvider.getString(CommonStrings.avatar_of_room, matrixItem.getBestName())
+            }
+            is MatrixItem.UserItem -> {
+                contentDescription = stringProvider.getString(CommonStrings.avatar_of_user, matrixItem.getBestName())
+            }
+            is MatrixItem.EveryoneInRoomItem,
+            is MatrixItem.EventItem -> {
+                // NA
+            }
+        }
     }
 }

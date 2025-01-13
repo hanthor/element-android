@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.onboarding
@@ -21,18 +12,19 @@ import com.airbnb.mvrx.MavericksViewModelFactory
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
-import im.vector.app.R
+import im.vector.app.config.Config
+import im.vector.app.config.SunsetConfig
 import im.vector.app.core.di.ActiveSessionHolder
 import im.vector.app.core.di.MavericksAssistedViewModelFactory
 import im.vector.app.core.di.hiltMavericksViewModelFactory
 import im.vector.app.core.extensions.cancelCurrentOnSet
-import im.vector.app.core.extensions.configureAndStart
 import im.vector.app.core.extensions.inferNoConnectivity
 import im.vector.app.core.extensions.isMatrixId
 import im.vector.app.core.extensions.toReducedUrl
 import im.vector.app.core.extensions.vectorStore
 import im.vector.app.core.platform.VectorViewModel
 import im.vector.app.core.resources.StringProvider
+import im.vector.app.core.session.ConfigureAndStartSessionUseCase
 import im.vector.app.core.utils.ensureProtocol
 import im.vector.app.core.utils.ensureTrailingSlash
 import im.vector.app.features.VectorFeatures
@@ -46,6 +38,8 @@ import im.vector.app.features.login.LoginMode
 import im.vector.app.features.login.ReAuthHelper
 import im.vector.app.features.login.ServerType
 import im.vector.app.features.login.SignMode
+import im.vector.app.features.mdm.MdmData
+import im.vector.app.features.mdm.MdmService
 import im.vector.app.features.onboarding.OnboardingAction.AuthenticateAction
 import im.vector.app.features.onboarding.StartAuthenticationFlowUseCase.StartAuthenticationResult
 import kotlinx.coroutines.Job
@@ -55,6 +49,7 @@ import org.matrix.android.sdk.api.MatrixPatterns
 import org.matrix.android.sdk.api.MatrixPatterns.getServerName
 import org.matrix.android.sdk.api.auth.AuthenticationService
 import org.matrix.android.sdk.api.auth.HomeServerHistoryService
+import org.matrix.android.sdk.api.auth.SSOAction
 import org.matrix.android.sdk.api.auth.data.HomeServerConnectionConfig
 import org.matrix.android.sdk.api.auth.data.SsoIdentityProvider
 import org.matrix.android.sdk.api.auth.login.LoginWizard
@@ -91,6 +86,8 @@ class OnboardingViewModel @AssistedInject constructor(
         private val vectorOverrides: VectorOverrides,
         private val registrationActionHandler: RegistrationActionHandler,
         private val sdkIntProvider: BuildVersionSdkIntProvider,
+        private val configureAndStartSessionUseCase: ConfigureAndStartSessionUseCase,
+        mdmService: MdmService,
 ) : VectorViewModel<OnboardingViewState, OnboardingAction, OnboardingViewEvents>(initialState) {
 
     @AssistedFactory
@@ -117,8 +114,8 @@ class OnboardingViewModel @AssistedInject constructor(
         }
     }
 
-    private val matrixOrgUrl = stringProvider.getString(R.string.matrix_org_server_url).ensureTrailingSlash()
-    private val defaultHomeserverUrl = matrixOrgUrl
+    private val matrixOrgUrl = stringProvider.getString(im.vector.app.config.R.string.matrix_org_server_url).ensureTrailingSlash()
+    private val defaultHomeserverUrl = mdmService.getData(MdmData.DefaultHomeserverUrl, matrixOrgUrl)
 
     private val registrationWizard: RegistrationWizard
         get() = authenticationService.getRegistrationWizard()
@@ -134,6 +131,8 @@ class OnboardingViewModel @AssistedInject constructor(
 
     private var emailVerificationPollingJob: Job? by cancelCurrentOnSet()
     private var currentJob: Job? by cancelCurrentOnSet()
+
+    private val trustedFingerprints = mutableListOf<Fingerprint>()
 
     override fun handle(action: OnboardingAction) {
         when (action) {
@@ -268,13 +267,14 @@ class OnboardingViewModel @AssistedInject constructor(
     private fun handleUserAcceptCertificate(action: OnboardingAction.UserAcceptCertificate) {
         // It happens when we get the login flow, or during direct authentication.
         // So alter the homeserver config and retrieve again the login flow
+        trustedFingerprints.add(action.fingerprint)
         when (action.retryAction) {
-            is OnboardingAction.HomeServerChange -> handleHomeserverChange(action.retryAction, fingerprint = action.fingerprint)
+            is OnboardingAction.HomeServerChange -> handleHomeserverChange(action.retryAction, fingerprints = trustedFingerprints)
             is AuthenticateAction.LoginDirect ->
                 handleDirectLogin(
                         action.retryAction,
                         // Will be replaced by the task
-                        homeServerConnectionConfigFactory.create("https://dummy.org", action.fingerprint)
+                        homeServerConnectionConfigFactory.create("https://dummy.org", trustedFingerprints)
                 )
             else -> Unit
         }
@@ -616,7 +616,7 @@ class OnboardingViewModel @AssistedInject constructor(
         activeSessionHolder.setActiveSession(session)
 
         authenticationService.reset()
-        session.configureAndStart(applicationContext)
+        configureAndStartSessionUseCase.execute(session)
 
         when (authenticationDescription) {
             is AuthenticationDescription.Register -> {
@@ -628,6 +628,7 @@ class OnboardingViewModel @AssistedInject constructor(
             }
             AuthenticationDescription.Login -> {
                 setState { copy(isLoading = false, selectedAuthenticationState = SelectedAuthenticationState(authenticationDescription)) }
+                awaitState()
                 _viewEvents.post(OnboardingViewEvents.OnAccountSignedIn)
             }
         }
@@ -639,6 +640,7 @@ class OnboardingViewModel @AssistedInject constructor(
                 val homeServerCapabilities = session.homeServerCapabilitiesService().getHomeServerCapabilities()
                 val capabilityOverrides = vectorOverrides.forceHomeserverCapabilities?.firstOrNull()
                 state.personalizationState.copy(
+                        userId = session.myUserId,
                         displayName = state.registrationState.selectedMatrixId?.let { MatrixPatterns.extractUserNameFromId(it) },
                         supportsChangingDisplayName = capabilityOverrides?.canChangeDisplayName ?: homeServerCapabilities.canChangeDisplayName,
                         supportsChangingProfilePicture = capabilityOverrides?.canChangeAvatar ?: homeServerCapabilities.canChangeAvatar
@@ -669,15 +671,17 @@ class OnboardingViewModel @AssistedInject constructor(
     private fun handleHomeserverChange(
             action: OnboardingAction.HomeServerChange,
             serverTypeOverride: ServerType? = null,
-            fingerprint: Fingerprint? = null,
+            fingerprints: List<Fingerprint>? = null,
             postAction: suspend () -> Unit = {},
     ) {
-        val homeServerConnectionConfig = homeServerConnectionConfigFactory.create(action.homeServerUrl, fingerprint)
+        val homeServerConnectionConfig = homeServerConnectionConfigFactory.create(action.homeServerUrl, fingerprints)
         if (homeServerConnectionConfig == null) {
             // This is invalid
             _viewEvents.post(OnboardingViewEvents.Failure(Throwable("Unable to create a HomeServerConnectionConfig")))
         } else {
-            startAuthenticationFlow(action, homeServerConnectionConfig, serverTypeOverride, postAction)
+            startAuthenticationFlow(action, homeServerConnectionConfig, serverTypeOverride, suspend {
+                postAction()
+            })
         }
     }
 
@@ -759,7 +763,13 @@ class OnboardingViewModel @AssistedInject constructor(
                 }
                 OnboardingFlow.SignUp -> {
                     updateSignMode(SignMode.SignUp)
-                    internalRegisterAction(RegisterAction.StartRegistration)
+                    if (authResult.selectedHomeserver.hasOidcCompatibilityFlow && Config.sunsetConfig is SunsetConfig.Enabled) {
+                        // Navigate to the screen to create an account, it will show the error
+                        setState { copy(isLoading = false) }
+                        _viewEvents.post(OnboardingViewEvents.OpenCombinedRegister)
+                    } else {
+                        internalRegisterAction(RegisterAction.StartRegistration)
+                    }
                 }
                 OnboardingFlow.SignInSignUp,
                 null -> {
@@ -773,9 +783,17 @@ class OnboardingViewModel @AssistedInject constructor(
 
     private suspend fun onHomeServerEdited(config: HomeServerConnectionConfig, serverTypeOverride: ServerType?, authResult: StartAuthenticationResult) {
         when (awaitState().onboardingFlow) {
-            OnboardingFlow.SignUp -> internalRegisterAction(RegisterAction.StartRegistration) {
-                updateServerSelection(config, serverTypeOverride, authResult)
-                _viewEvents.post(OnboardingViewEvents.OnHomeserverEdited)
+            OnboardingFlow.SignUp -> {
+                if (authResult.selectedHomeserver.hasOidcCompatibilityFlow && Config.sunsetConfig is SunsetConfig.Enabled) {
+                    // An error is displayed now
+                    setState { copy(isLoading = false) }
+                    _viewEvents.post(OnboardingViewEvents.Failure(MasSupportRequiredException()))
+                } else {
+                    internalRegisterAction(RegisterAction.StartRegistration) {
+                        updateServerSelection(config, serverTypeOverride, authResult)
+                        _viewEvents.post(OnboardingViewEvents.OnHomeserverEdited)
+                    }
+                }
             }
             OnboardingFlow.SignIn -> {
                 updateServerSelection(config, serverTypeOverride, authResult)
@@ -812,12 +830,12 @@ class OnboardingViewModel @AssistedInject constructor(
 
     fun getDefaultHomeserverUrl() = defaultHomeserverUrl
 
-    fun fetchSsoUrl(redirectUrl: String, deviceId: String?, provider: SsoIdentityProvider?): String? {
+    fun fetchSsoUrl(redirectUrl: String, deviceId: String?, provider: SsoIdentityProvider?, action: SSOAction): String? {
         setState {
             val authDescription = AuthenticationDescription.Register(provider.toAuthenticationType())
             copy(selectedAuthenticationState = SelectedAuthenticationState(authDescription))
         }
-        return authenticationService.getSsoUrl(redirectUrl, deviceId, provider?.id)
+        return authenticationService.getSsoUrl(redirectUrl, deviceId, provider?.id, action)
     }
 
     fun getFallbackUrl(forSignIn: Boolean, deviceId: String?): String? {
@@ -922,7 +940,10 @@ private fun LoginMode.supportsSignModeScreen(): Boolean {
     return when (this) {
         LoginMode.Password,
         is LoginMode.SsoAndPassword -> true
-        is LoginMode.Sso,
+        is LoginMode.Sso -> {
+            // In this case, an error will be displayed in the next screen
+            hasOidcCompatibilityFlow
+        }
         LoginMode.Unknown,
         LoginMode.Unsupported -> false
     }

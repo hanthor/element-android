@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 package im.vector.app.features.crypto.keysbackup.setup
 
@@ -24,8 +15,6 @@ import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
-import im.vector.app.R
-import im.vector.app.core.di.ActiveSessionHolder
 import im.vector.app.core.dialogs.ExportKeysDialog
 import im.vector.app.core.extensions.observeEvent
 import im.vector.app.core.extensions.queryExportKeys
@@ -34,18 +23,18 @@ import im.vector.app.core.extensions.replaceFragment
 import im.vector.app.core.platform.SimpleFragmentActivity
 import im.vector.app.core.utils.toast
 import im.vector.app.features.crypto.keys.KeysExporter
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class KeysBackupSetupActivity : SimpleFragmentActivity() {
 
-    override fun getTitleRes() = R.string.title_activity_keys_backup_setup
+    override fun getTitleRes() = CommonStrings.title_activity_keys_backup_setup
 
     private lateinit var viewModel: KeysBackupSetupSharedViewModel
 
     @Inject lateinit var keysExporter: KeysExporter
-    @Inject lateinit var activeSessionHolder: ActiveSessionHolder
 
     private val session by lazy {
         activeSessionHolder.getActiveSession()
@@ -96,17 +85,21 @@ class KeysBackupSetupActivity : SimpleFragmentActivity() {
                 }
                 KeysBackupSetupSharedViewModel.NAVIGATE_PROMPT_REPLACE -> {
                     MaterialAlertDialogBuilder(this)
-                            .setTitle(R.string.keys_backup_setup_override_backup_prompt_tile)
-                            .setMessage(R.string.keys_backup_setup_override_backup_prompt_description)
-                            .setPositiveButton(R.string.keys_backup_setup_override_replace) { _, _ ->
+                            .setTitle(CommonStrings.keys_backup_setup_override_backup_prompt_tile)
+                            .setMessage(CommonStrings.keys_backup_setup_override_backup_prompt_description)
+                            .setPositiveButton(CommonStrings.keys_backup_setup_override_replace) { _, _ ->
                                 viewModel.forceCreateKeyBackup(this)
-                            }.setNegativeButton(R.string.keys_backup_setup_override_stop) { _, _ ->
+                            }.setNegativeButton(CommonStrings.keys_backup_setup_override_stop) { _, _ ->
                                 viewModel.stopAndKeepAfterDetectingExistingOnServer()
                             }
                             .show()
                 }
                 KeysBackupSetupSharedViewModel.NAVIGATE_MANUAL_EXPORT -> {
-                    queryExportKeys(session.myUserId, saveStartForActivityResult)
+                    queryExportKeys(
+                            userId = session.myUserId,
+                            applicationName = buildMeta.applicationName,
+                            activityResultLauncher = saveStartForActivityResult,
+                    )
                 }
             }
         }
@@ -114,9 +107,9 @@ class KeysBackupSetupActivity : SimpleFragmentActivity() {
         viewModel.prepareRecoverFailError.observe(this) { error ->
             if (error != null) {
                 MaterialAlertDialogBuilder(this)
-                        .setTitle(R.string.unknown_error)
+                        .setTitle(CommonStrings.unknown_error)
                         .setMessage(error.localizedMessage)
-                        .setPositiveButton(R.string.ok) { _, _ ->
+                        .setPositiveButton(CommonStrings.ok) { _, _ ->
                             // nop
                             viewModel.prepareRecoverFailError.value = null
                         }
@@ -127,9 +120,9 @@ class KeysBackupSetupActivity : SimpleFragmentActivity() {
         viewModel.creatingBackupError.observe(this) { error ->
             if (error != null) {
                 MaterialAlertDialogBuilder(this)
-                        .setTitle(R.string.unexpected_error)
+                        .setTitle(CommonStrings.unexpected_error)
                         .setMessage(error.localizedMessage)
-                        .setPositiveButton(R.string.ok) { _, _ ->
+                        .setPositiveButton(CommonStrings.ok) { _, _ ->
                             // nop
                             viewModel.creatingBackupError.value = null
                         }
@@ -149,7 +142,7 @@ class KeysBackupSetupActivity : SimpleFragmentActivity() {
                     }
                 })
             } else {
-                toast(getString(R.string.unexpected_error))
+                toast(getString(CommonStrings.unexpected_error))
                 hideWaitingView()
             }
         }
@@ -159,30 +152,32 @@ class KeysBackupSetupActivity : SimpleFragmentActivity() {
         lifecycleScope.launch {
             try {
                 keysExporter.export(passphrase, uri)
-                toast(getString(R.string.encryption_exported_successfully))
+                toast(getString(CommonStrings.encryption_exported_successfully))
                 setResult(Activity.RESULT_OK, Intent().apply { putExtra(MANUAL_EXPORT, true) })
                 finish()
             } catch (failure: Throwable) {
-                toast(failure.localizedMessage ?: getString(R.string.unexpected_error))
+                toast(failure.localizedMessage ?: getString(CommonStrings.unexpected_error))
             }
             hideWaitingView()
         }
     }
 
+    @Suppress("OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
         if (viewModel.shouldPromptOnBack) {
             if (waitingView?.isVisible == true) {
                 return
             }
             MaterialAlertDialogBuilder(this)
-                    .setTitle(R.string.keys_backup_setup_skip_title)
-                    .setMessage(R.string.keys_backup_setup_skip_msg)
-                    .setNegativeButton(R.string.action_cancel, null)
-                    .setPositiveButton(R.string.action_leave) { _, _ ->
+                    .setTitle(CommonStrings.keys_backup_setup_skip_title)
+                    .setMessage(CommonStrings.keys_backup_setup_skip_msg)
+                    .setNegativeButton(CommonStrings.action_cancel, null)
+                    .setPositiveButton(CommonStrings.action_leave) { _, _ ->
                         finish()
                     }
                     .show()
         } else {
+            @Suppress("DEPRECATION")
             super.onBackPressed()
         }
     }

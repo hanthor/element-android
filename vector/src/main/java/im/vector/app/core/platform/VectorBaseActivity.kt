@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.core.platform
@@ -42,6 +33,7 @@ import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.preference.PreferenceManager
 import androidx.viewbinding.ViewBinding
 import com.airbnb.mvrx.MavericksView
@@ -57,6 +49,7 @@ import im.vector.app.core.di.ActiveSessionHolder
 import im.vector.app.core.di.ActivityEntryPoint
 import im.vector.app.core.dialogs.DialogLocker
 import im.vector.app.core.dialogs.UnrecognizedCertificateDialog
+import im.vector.app.core.error.ErrorFormatter
 import im.vector.app.core.error.fatalError
 import im.vector.app.core.extensions.observeEvent
 import im.vector.app.core.extensions.observeNotNull
@@ -75,6 +68,7 @@ import im.vector.app.features.analytics.AnalyticsTracker
 import im.vector.app.features.analytics.plan.MobileScreen
 import im.vector.app.features.configuration.VectorConfiguration
 import im.vector.app.features.consent.ConsentNotGivenHelper
+import im.vector.app.features.mdm.MdmService
 import im.vector.app.features.navigation.Navigator
 import im.vector.app.features.pin.PinLocker
 import im.vector.app.features.pin.PinMode
@@ -85,11 +79,14 @@ import im.vector.app.features.rageshake.RageShake
 import im.vector.app.features.session.SessionListener
 import im.vector.app.features.settings.FontScalePreferences
 import im.vector.app.features.settings.FontScalePreferencesImpl
+import im.vector.app.features.settings.VectorLocaleProvider
 import im.vector.app.features.settings.VectorPreferences
 import im.vector.app.features.themes.ActivityOtherThemes
 import im.vector.app.features.themes.ThemeUtils
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import org.matrix.android.sdk.api.extensions.orFalse
 import org.matrix.android.sdk.api.extensions.tryOrNull
 import org.matrix.android.sdk.api.failure.GlobalError
@@ -105,7 +102,7 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
 
     protected var analyticsScreenName: MobileScreen.ScreenName? = null
 
-    protected lateinit var analyticsTracker: AnalyticsTracker
+    @Inject lateinit var analyticsTracker: AnalyticsTracker
 
     /* ==========================================================================================
      * View
@@ -122,14 +119,20 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
     protected val viewModelProvider
         get() = ViewModelProvider(this, viewModelFactory)
 
-    fun <T : VectorViewEvents> VectorViewModel<*, *, T>.observeViewEvents(observer: (T) -> Unit) {
-        viewEvents
-                .stream()
-                .onEach {
-                    hideWaitingView()
-                    observer(it)
-                }
-                .launchIn(lifecycleScope)
+    fun <T : VectorViewEvents> VectorViewModel<*, *, T>.observeViewEvents(
+            observer: (T) -> Unit,
+    ) {
+        val tag = this@VectorBaseActivity::class.simpleName.toString()
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                viewEvents
+                        .stream(tag)
+                        .collect {
+                            hideWaitingView()
+                            observer(it)
+                        }
+            }
+        }
     }
 
     var toolbar: ToolbarConfig? = null
@@ -149,25 +152,23 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
      * ========================================================================================== */
 
     private lateinit var configurationViewModel: ConfigurationViewModel
-    private lateinit var sessionListener: SessionListener
-    protected lateinit var bugReporter: BugReporter
-    private lateinit var pinLocker: PinLocker
 
+    @Inject lateinit var sessionListener: SessionListener
+    @Inject lateinit var bugReporter: BugReporter
+    @Inject lateinit var pinLocker: PinLocker
     @Inject lateinit var rageShake: RageShake
     @Inject lateinit var buildMeta: BuildMeta
     @Inject lateinit var fontScalePreferences: FontScalePreferences
+    @Inject lateinit var vectorLocale: VectorLocaleProvider
+    @Inject lateinit var vectorFeatures: VectorFeatures
+    @Inject lateinit var navigator: Navigator
+    @Inject lateinit var activeSessionHolder: ActiveSessionHolder
+    @Inject lateinit var vectorPreferences: VectorPreferences
+    @Inject lateinit var errorFormatter: ErrorFormatter
+    @Inject lateinit var mdmService: MdmService
 
     // For debug only
     @Inject lateinit var debugReceiver: DebugReceiver
-
-    @Inject
-    lateinit var vectorFeatures: VectorFeatures
-
-    lateinit var navigator: Navigator
-        private set
-
-    private lateinit var activeSessionHolder: ActiveSessionHolder
-    private lateinit var vectorPreferences: VectorPreferences
 
     // Filter for multiple invalid token error
     private var mainActivityStarted = false
@@ -177,8 +178,10 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
     private val restorables = ArrayList<Restorable>()
 
     override fun attachBaseContext(base: Context) {
-        val fontScalePreferences = FontScalePreferencesImpl(PreferenceManager.getDefaultSharedPreferences(base), AndroidSystemSettingsProvider(base))
-        val vectorConfiguration = VectorConfiguration(this, fontScalePreferences)
+        val preferences = PreferenceManager.getDefaultSharedPreferences(base)
+        val fontScalePreferences = FontScalePreferencesImpl(preferences, AndroidSystemSettingsProvider(base))
+        val vectorLocaleProvider = VectorLocaleProvider(preferences)
+        val vectorConfiguration = VectorConfiguration(this, fontScalePreferences, vectorLocaleProvider)
         super.attachBaseContext(vectorConfiguration.getLocalisedContext(base))
     }
 
@@ -202,7 +205,6 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
     @CallSuper
     override fun onCreate(savedInstanceState: Bundle?) {
         Timber.i("onCreate Activity ${javaClass.simpleName}")
-        val singletonEntryPoint = singletonEntryPoint()
         val activityEntryPoint = EntryPointAccessors.fromActivity(this, ActivityEntryPoint::class.java)
         ThemeUtils.setActivityTheme(this, getOtherThemes())
         viewModelFactory = activityEntryPoint.viewModelFactory()
@@ -210,12 +212,6 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
         addOnMultiWindowModeChangedListener(onMultiWindowModeChangedListener)
         setupMenu()
         configurationViewModel = viewModelProvider.get(ConfigurationViewModel::class.java)
-        bugReporter = singletonEntryPoint.bugReporter()
-        pinLocker = singletonEntryPoint.pinLocker()
-        analyticsTracker = singletonEntryPoint.analyticsTracker()
-        navigator = singletonEntryPoint.navigator()
-        activeSessionHolder = singletonEntryPoint.activeSessionHolder()
-        vectorPreferences = singletonEntryPoint.vectorPreferences()
         configurationViewModel.activityRestarter.observe(this) {
             if (!it.hasBeenHandled) {
                 // Recreate the Activity because configuration has changed
@@ -227,7 +223,6 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
                 navigator.openPinCode(this, pinStartForActivityResult, PinMode.AUTH)
             }
         }
-        sessionListener = singletonEntryPoint.sessionListener()
         sessionListener.globalErrorLiveData.observeEvent(this) {
             handleGlobalError(it)
         }
@@ -249,9 +244,9 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
 
         initUiAndData()
 
-        if (vectorFeatures.isNewAppLayoutEnabled()) {
+        if (vectorPreferences.isNewAppLayoutEnabled()) {
             tryOrNull { // Add to XML theme when feature flag is removed
-                val toolbarBackground = MaterialColors.getColor(views.root, R.attr.vctr_toolbar_background)
+                val toolbarBackground = MaterialColors.getColor(views.root, im.vector.lib.ui.styles.R.attr.vctr_toolbar_background)
                 window.statusBarColor = toolbarBackground
                 window.navigationBarColor = toolbarBackground
             }
@@ -319,20 +314,20 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
 
     private fun handleInitialSyncRequest(initialSyncRequest: GlobalError.InitialSyncRequest) {
         MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.initial_sync_request_title)
+                .setTitle(CommonStrings.initial_sync_request_title)
                 .setMessage(
                         getString(
-                                R.string.initial_sync_request_content, getString(
+                                CommonStrings.initial_sync_request_content, getString(
                                 when (initialSyncRequest.reason) {
-                                    InitialSyncRequestReason.IGNORED_USERS_LIST_CHANGE -> R.string.initial_sync_request_reason_unignored_users
+                                    InitialSyncRequestReason.IGNORED_USERS_LIST_CHANGE -> CommonStrings.initial_sync_request_reason_unignored_users
                                 }
                         )
                         )
                 )
-                .setPositiveButton(R.string.ok) { _, _ ->
+                .setPositiveButton(CommonStrings.ok) { _, _ ->
                     MainActivity.restartApp(this, MainActivityArgs(clearCache = true))
                 }
-                .setNegativeButton(R.string.later, null)
+                .setNegativeButton(CommonStrings.later, null)
                 .show()
     }
 
@@ -412,6 +407,10 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
             rageShake.start()
         }
         debugReceiver.register(this)
+        mdmService.registerListener(this) {
+            // Just log that a change occurred.
+            Timber.w("MDM data has been updated")
+        }
     }
 
     private val postResumeScheduledActions = mutableListOf<() -> Unit>()
@@ -442,6 +441,7 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
 
         rageShake.stop()
         debugReceiver.unregister(this)
+        mdmService.unregisterListener(this)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -464,23 +464,18 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
     /**
      * Force to render the activity in fullscreen.
      */
-    @Suppress("DEPRECATION")
     private fun setFullScreen() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // New API instead of SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN and SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
             window.setDecorFitsSystemWindows(false)
             // New API instead of SYSTEM_UI_FLAG_IMMERSIVE
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                window.decorView.windowInsetsController?.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            } else {
-                @SuppressLint("WrongConstant")
-                window.decorView.windowInsetsController?.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_BARS_BY_SWIPE
-            }
+            window.decorView.windowInsetsController?.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             // New API instead of FLAG_TRANSLUCENT_STATUS
-            window.statusBarColor = ContextCompat.getColor(this, im.vector.lib.attachmentviewer.R.color.half_transparent_status_bar)
+            window.statusBarColor = ContextCompat.getColor(this, im.vector.lib.ui.styles.R.color.half_transparent_status_bar)
             // New API instead of FLAG_TRANSLUCENT_NAVIGATION
-            window.navigationBarColor = ContextCompat.getColor(this, im.vector.lib.attachmentviewer.R.color.half_transparent_status_bar)
+            window.navigationBarColor = ContextCompat.getColor(this, im.vector.lib.ui.styles.R.color.half_transparent_status_bar)
         } else {
+            @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                     or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                     or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
@@ -500,6 +495,8 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
         }
     }
 
+    @SuppressLint("MissingSuperCall")
+    @Suppress("OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
         onBackPressed(false)
     }
@@ -507,6 +504,7 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
     private fun onBackPressed(fromToolbar: Boolean) {
         val handled = recursivelyDispatchOnBackPressed(supportFragmentManager, fromToolbar)
         if (!handled) {
+            @Suppress("DEPRECATION")
             super.onBackPressed()
         }
     }
@@ -643,9 +641,9 @@ abstract class VectorBaseActivity<VB : ViewBinding> : AppCompatActivity(), Maver
 
     fun notImplemented(message: String = "") {
         if (message.isNotBlank()) {
-            toast(getString(R.string.not_implemented) + ": $message")
+            toast(getString(CommonStrings.not_implemented) + ": $message")
         } else {
-            toast(getString(R.string.not_implemented))
+            toast(getString(CommonStrings.not_implemented))
         }
     }
 

@@ -30,7 +30,15 @@ internal open class HomeServerCapabilitiesEntity(
         var defaultIdentityServerUrl: String? = null,
         var lastUpdatedTimestamp: Long = 0L,
         var canUseThreading: Boolean = false,
-        var canControlLogoutDevices: Boolean = false
+        var canControlLogoutDevices: Boolean = false,
+        var canLoginWithQrCode: Boolean = false,
+        var canUseThreadReadReceiptsAndNotifications: Boolean = false,
+        var canRemotelyTogglePushNotificationsOfDevices: Boolean = false,
+        var canRedactEventWithRelations: Boolean = false,
+        var externalAccountManagementUrl: String? = null,
+        var authenticationIssuer: String? = null,
+        var disableNetworkConstraint: Boolean? = null,
+        var canUseAuthenticatedMedia: Boolean = false,
 ) : RealmObject() {
 
     companion object

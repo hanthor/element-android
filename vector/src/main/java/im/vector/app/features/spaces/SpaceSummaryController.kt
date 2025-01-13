@@ -1,27 +1,18 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.spaces
 
 import com.airbnb.epoxy.EpoxyController
-import im.vector.app.R
 import im.vector.app.core.resources.StringProvider
 import im.vector.app.features.grouplist.homeSpaceSummaryItem
 import im.vector.app.features.home.AvatarRenderer
 import im.vector.app.features.home.room.list.UnreadCounterBadgeView
+import im.vector.lib.strings.CommonStrings
 import org.matrix.android.sdk.api.extensions.orFalse
 import org.matrix.android.sdk.api.session.room.model.Membership
 import org.matrix.android.sdk.api.session.room.model.RoomSummary
@@ -78,7 +69,7 @@ class SpaceSummaryController @Inject constructor(
                         matrixItem(roomSummary.toMatrixItem())
                         countState(UnreadCounterBadgeView.State.Count(1, true))
                         selected(false)
-                        description(host.stringProvider.getString(R.string.you_are_invited))
+                        description(host.stringProvider.getString(CommonStrings.you_are_invited))
                         canDrag(false)
                         listener { host.callback?.onSpaceInviteSelected(roomSummary) }
                     }
@@ -88,7 +79,7 @@ class SpaceSummaryController @Inject constructor(
             id("space_home")
             selected(selectedSpace == null)
             countState(UnreadCounterBadgeView.State.Count(homeCount.totalCount, homeCount.isHighlight))
-            listener { host.callback?.onSpaceSelected(null) }
+            listener { host.callback?.onSpaceSelected(null, isSubSpace = false) }
         }
 
         rootSpaces
@@ -114,7 +105,7 @@ class SpaceSummaryController @Inject constructor(
                         selected(isSelected)
                         canDrag(true)
                         onMore { host.callback?.onSpaceSettings(roomSummary) }
-                        listener { host.callback?.onSpaceSelected(roomSummary) }
+                        listener { host.callback?.onSpaceSelected(roomSummary, isSubSpace = false) }
                         toggleExpand { host.callback?.onToggleExpand(roomSummary) }
                         countState(
                                 UnreadCounterBadgeView.State.Count(
@@ -165,7 +156,7 @@ class SpaceSummaryController @Inject constructor(
             expanded(expanded)
             onMore { host.callback?.onSpaceSettings(childSummary) }
             matrixItem(childSummary.toMatrixItem())
-            listener { host.callback?.onSpaceSelected(childSummary) }
+            listener { host.callback?.onSpaceSelected(childSummary, isSubSpace = true) }
             toggleExpand { host.callback?.onToggleExpand(childSummary) }
             indent(currentDepth)
             countState(
@@ -184,7 +175,7 @@ class SpaceSummaryController @Inject constructor(
     }
 
     interface Callback {
-        fun onSpaceSelected(spaceSummary: RoomSummary?)
+        fun onSpaceSelected(spaceSummary: RoomSummary?, isSubSpace: Boolean)
         fun onSpaceInviteSelected(spaceSummary: RoomSummary)
         fun onSpaceSettings(spaceSummary: RoomSummary)
         fun onToggleExpand(spaceSummary: RoomSummary)

@@ -1,36 +1,29 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.core.di
 
-import android.content.Context
-import arrow.core.Option
 import im.vector.app.ActiveSessionDataSource
-import im.vector.app.core.extensions.configureAndStart
-import im.vector.app.core.extensions.startSyncing
-import im.vector.app.core.pushers.UnifiedPushHelper
+import im.vector.app.core.dispatchers.CoroutineDispatchers
+import im.vector.app.core.pushers.UnregisterUnifiedPushUseCase
 import im.vector.app.core.services.GuardServiceStarter
+import im.vector.app.core.session.ConfigureAndStartSessionUseCase
 import im.vector.app.features.call.webrtc.WebRtcCallManager
 import im.vector.app.features.crypto.keysrequest.KeyRequestHandler
 import im.vector.app.features.crypto.verification.IncomingVerificationRequestHandler
 import im.vector.app.features.notifications.PushRuleTriggerListener
 import im.vector.app.features.session.SessionListener
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.matrix.android.sdk.api.auth.AuthenticationService
 import org.matrix.android.sdk.api.session.Session
+import org.matrix.android.sdk.api.util.Optional
+import org.matrix.android.sdk.api.util.toOption
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
@@ -45,11 +38,13 @@ class ActiveSessionHolder @Inject constructor(
         private val pushRuleTriggerListener: PushRuleTriggerListener,
         private val sessionListener: SessionListener,
         private val imageManager: ImageManager,
-        private val unifiedPushHelper: UnifiedPushHelper,
         private val guardServiceStarter: GuardServiceStarter,
         private val sessionInitializer: SessionInitializer,
-        private val applicationContext: Context,
         private val authenticationService: AuthenticationService,
+        private val configureAndStartSessionUseCase: ConfigureAndStartSessionUseCase,
+        private val unregisterUnifiedPushUseCase: UnregisterUnifiedPushUseCase,
+        private val applicationCoroutineScope: CoroutineScope,
+        private val coroutineDispatchers: CoroutineDispatchers,
 ) {
 
     private var activeSessionReference: AtomicReference<Session?> = AtomicReference()
@@ -57,7 +52,7 @@ class ActiveSessionHolder @Inject constructor(
     fun setActiveSession(session: Session) {
         Timber.w("setActiveSession of ${session.myUserId}")
         activeSessionReference.set(session)
-        activeSessionDataSource.post(Option.just(session))
+        activeSessionDataSource.post(session.toOption())
 
         keyRequestHandler.start(session)
         incomingVerificationRequestHandler.start(session)
@@ -70,20 +65,20 @@ class ActiveSessionHolder @Inject constructor(
 
     suspend fun clearActiveSession() {
         // Do some cleanup first
-        getSafeActiveSession(startSync = false)?.let {
+        getSafeActiveSession()?.let {
             Timber.w("clearActiveSession of ${it.myUserId}")
             it.callSignalingService().removeCallListener(callManager)
             it.removeListener(sessionListener)
         }
 
         activeSessionReference.set(null)
-        activeSessionDataSource.post(Option.empty())
+        activeSessionDataSource.post(Optional.empty())
 
         keyRequestHandler.stop()
         incomingVerificationRequestHandler.stop()
         pushRuleTriggerListener.stop()
         // No need to unregister the pusher, the sign out will (should?) do it server side.
-        unifiedPushHelper.unregister(pushersManager = null)
+        unregisterUnifiedPushUseCase.execute(pushersManager = null)
         guardServiceStarter.stop()
     }
 
@@ -91,8 +86,15 @@ class ActiveSessionHolder @Inject constructor(
         return activeSessionReference.get() != null || authenticationService.hasAuthenticatedSessions()
     }
 
-    fun getSafeActiveSession(startSync: Boolean = true): Session? {
-        return runBlocking { getOrInitializeSession(startSync = startSync) }
+    fun getSafeActiveSession(): Session? {
+        return runBlocking { getOrInitializeSession() }
+    }
+
+    fun getSafeActiveSessionAsync(withSession: ((Session?) -> Unit)) {
+        applicationCoroutineScope.launch(coroutineDispatchers.io) {
+            val session = getOrInitializeSession()
+            withSession(session)
+        }
     }
 
     fun getActiveSession(): Session {
@@ -100,16 +102,11 @@ class ActiveSessionHolder @Inject constructor(
                 ?: throw IllegalStateException("You should authenticate before using this")
     }
 
-    suspend fun getOrInitializeSession(startSync: Boolean): Session? {
+    suspend fun getOrInitializeSession(): Session? {
         return activeSessionReference.get()
-                ?.also {
-                    if (startSync && !it.syncService().isSyncThreadAlive()) {
-                        it.startSyncing(applicationContext)
-                    }
-                }
                 ?: sessionInitializer.tryInitialize(readCurrentSession = { activeSessionReference.get() }) { session ->
                     setActiveSession(session)
-                    session.configureAndStart(applicationContext, startSyncing = startSync)
+                    configureAndStartSessionUseCase.execute(session, startSyncing = false)
                 }
     }
 

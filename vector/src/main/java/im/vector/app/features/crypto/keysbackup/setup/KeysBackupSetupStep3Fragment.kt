@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 package im.vector.app.features.crypto.keysbackup.setup
 
@@ -25,7 +16,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
-import arrow.core.Try
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
@@ -38,6 +28,7 @@ import im.vector.app.core.utils.copyToClipboard
 import im.vector.app.core.utils.selectTxtFileToWrite
 import im.vector.app.core.utils.startSharePlainTextIntent
 import im.vector.app.databinding.FragmentKeysBackupSetupStep3Binding
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -65,10 +56,10 @@ class KeysBackupSetupStep3Fragment :
         viewModel.passphrase.observe(viewLifecycleOwner) {
             if (it.isNullOrBlank()) {
                 // Recovery was generated, so show key and options to save
-                views.keysBackupSetupStep3Label2.text = getString(R.string.keys_backup_setup_step3_text_line2_no_passphrase)
-                views.keysBackupSetupStep3FinishButton.text = getString(R.string.keys_backup_setup_step3_button_title_no_passphrase)
+                views.keysBackupSetupStep3Label2.text = getString(CommonStrings.keys_backup_setup_step3_text_line2_no_passphrase)
+                views.keysBackupSetupStep3FinishButton.text = getString(CommonStrings.keys_backup_setup_step3_button_title_no_passphrase)
 
-                views.keysBackupSetupStep3RecoveryKeyText.text = viewModel.recoveryKey.value!!
+                views.keysBackupSetupStep3RecoveryKeyText.text = viewModel.recoveryKey.value!!.toBase58()
                         .replace(" ", "")
                         .chunked(16)
                         .joinToString("\n") {
@@ -78,8 +69,8 @@ class KeysBackupSetupStep3Fragment :
                         }
                 views.keysBackupSetupStep3RecoveryKeyText.isVisible = true
             } else {
-                views.keysBackupSetupStep3Label2.text = getString(R.string.keys_backup_setup_step3_text_line2)
-                views.keysBackupSetupStep3FinishButton.text = getString(R.string.keys_backup_setup_step3_button_title)
+                views.keysBackupSetupStep3Label2.text = getString(CommonStrings.keys_backup_setup_step3_text_line2)
+                views.keysBackupSetupStep3FinishButton.text = getString(CommonStrings.keys_backup_setup_step3_button_title)
                 views.keysBackupSetupStep3RecoveryKeyText.isVisible = false
             }
         }
@@ -98,7 +89,7 @@ class KeysBackupSetupStep3Fragment :
             // nothing
         } else {
             if (viewModel.passphrase.value.isNullOrBlank() && !viewModel.copyHasBeenMade) {
-                Toast.makeText(context, R.string.keys_backup_setup_step3_please_make_copy, Toast.LENGTH_LONG).show()
+                Toast.makeText(context, CommonStrings.keys_backup_setup_step3_please_make_copy, Toast.LENGTH_LONG).show()
             } else {
                 viewModel.navigateEvent.value = LiveEvent(KeysBackupSetupSharedViewModel.NAVIGATE_FINISH)
             }
@@ -116,7 +107,8 @@ class KeysBackupSetupStep3Fragment :
         } else {
             dialog.findViewById<TextView>(R.id.keys_backup_recovery_key_text)?.let {
                 it.isVisible = true
-                it.text = recoveryKey.replace(" ", "")
+                it.text = recoveryKey.toBase58()
+                        .replace(" ", "")
                         .chunked(16)
                         .joinToString("\n") {
                             it
@@ -125,7 +117,7 @@ class KeysBackupSetupStep3Fragment :
                         }
 
                 it.debouncedClicks {
-                    copyToClipboard(requireActivity(), recoveryKey)
+                    copyToClipboard(requireActivity(), recoveryKey.toBase58())
                 }
             }
         }
@@ -137,7 +129,7 @@ class KeysBackupSetupStep3Fragment :
                     activity = requireActivity(),
                     activityResultLauncher = saveRecoveryActivityResultLauncher,
                     defaultFileName = "recovery-key-$userId-${timestamp}.txt",
-                    chooserHint = getString(R.string.save_recovery_key_chooser_hint)
+                    chooserHint = getString(CommonStrings.save_recovery_key_chooser_hint)
             )
             dialog.dismiss()
         }
@@ -146,9 +138,9 @@ class KeysBackupSetupStep3Fragment :
             startSharePlainTextIntent(
                     context = requireContext(),
                     activityResultLauncher = null,
-                    chooserTitle = context?.getString(R.string.keys_backup_setup_step3_share_intent_chooser_title),
-                    text = recoveryKey,
-                    subject = context?.getString(R.string.recovery_key)
+                    chooserTitle = context?.getString(CommonStrings.keys_backup_setup_step3_share_intent_chooser_title),
+                    text = recoveryKey.toBase58(),
+                    subject = context?.getString(CommonStrings.recovery_key)
             )
             viewModel.copyHasBeenMade = true
             dialog.dismiss()
@@ -161,13 +153,13 @@ class KeysBackupSetupStep3Fragment :
         viewModel.recoveryKey.value?.let {
             viewModel.copyHasBeenMade = true
 
-            copyToClipboard(requireActivity(), it)
+            copyToClipboard(requireActivity(), it.toBase58())
         }
     }
 
     private fun exportRecoveryKeyToFile(uri: Uri, data: String) {
         lifecycleScope.launch(Dispatchers.Main) {
-            Try {
+            try {
                 withContext(Dispatchers.IO) {
                     requireContext().safeOpenOutputStream(uri)
                             ?.use { os ->
@@ -176,26 +168,21 @@ class KeysBackupSetupStep3Fragment :
                             }
                 }
                         ?: throw IOException("Unable to write the file")
+                viewModel.copyHasBeenMade = true
+                activity?.let {
+                    MaterialAlertDialogBuilder(it)
+                            .setTitle(CommonStrings.dialog_title_success)
+                            .setMessage(CommonStrings.recovery_key_export_saved)
+                }
+            } catch (throwable: Throwable) {
+                activity?.let {
+                    MaterialAlertDialogBuilder(it)
+                            .setTitle(CommonStrings.dialog_title_error)
+                            .setMessage(errorFormatter.toHumanReadable(throwable))
+                }
             }
-                    .fold(
-                            { throwable ->
-                                activity?.let {
-                                    MaterialAlertDialogBuilder(it)
-                                            .setTitle(R.string.dialog_title_error)
-                                            .setMessage(errorFormatter.toHumanReadable(throwable))
-                                }
-                            },
-                            {
-                                viewModel.copyHasBeenMade = true
-                                activity?.let {
-                                    MaterialAlertDialogBuilder(it)
-                                            .setTitle(R.string.dialog_title_success)
-                                            .setMessage(R.string.recovery_key_export_saved)
-                                }
-                            }
-                    )
                     ?.setCancelable(false)
-                    ?.setPositiveButton(R.string.ok, null)
+                    ?.setPositiveButton(CommonStrings.ok, null)
                     ?.show()
         }
     }
@@ -204,7 +191,7 @@ class KeysBackupSetupStep3Fragment :
         val uri = activityRessult.data?.data ?: return@registerStartForActivityResult
         if (activityRessult.resultCode == Activity.RESULT_OK) {
             viewModel.recoveryKey.value?.let {
-                exportRecoveryKeyToFile(uri, it)
+                exportRecoveryKeyToFile(uri, it.toBase58())
             }
         }
     }

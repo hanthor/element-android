@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home
@@ -32,11 +23,13 @@ import im.vector.app.core.resources.BuildMeta
 import im.vector.app.core.utils.startSharePlainTextIntent
 import im.vector.app.databinding.FragmentHomeDrawerBinding
 import im.vector.app.features.analytics.plan.MobileScreen
+import im.vector.app.features.permalink.PermalinkFactory
 import im.vector.app.features.settings.VectorPreferences
 import im.vector.app.features.settings.VectorSettingsActivity
 import im.vector.app.features.spaces.SpaceListFragment
 import im.vector.app.features.usercode.UserCodeActivity
 import im.vector.app.features.workers.signout.SignOutUiWorker
+import im.vector.lib.strings.CommonStrings
 import org.matrix.android.sdk.api.session.Session
 import org.matrix.android.sdk.api.util.toMatrixItem
 import javax.inject.Inject
@@ -49,6 +42,7 @@ class HomeDrawerFragment :
     @Inject lateinit var vectorPreferences: VectorPreferences
     @Inject lateinit var avatarRenderer: AvatarRenderer
     @Inject lateinit var buildMeta: BuildMeta
+    @Inject lateinit var permalinkFactory: PermalinkFactory
 
     private lateinit var sharedActionViewModel: HomeSharedActionViewModel
 
@@ -101,16 +95,16 @@ class HomeDrawerFragment :
         }
 
         views.homeDrawerInviteFriendButton.debouncedClicks {
-            session.permalinkService().createPermalink(sharedActionViewModel.session.myUserId)?.let { permalink ->
+            permalinkFactory.createPermalinkOfCurrentUser()?.let { permalink ->
                 analyticsTracker.screen(MobileScreen(screenName = MobileScreen.ScreenName.InviteFriends))
-                val text = getString(R.string.invite_friends_text, permalink)
+                val text = getString(CommonStrings.invite_friends_text, permalink)
 
                 startSharePlainTextIntent(
                         context = requireContext(),
                         activityResultLauncher = null,
-                        chooserTitle = getString(R.string.invite_friends),
+                        chooserTitle = getString(CommonStrings.invite_friends),
                         text = text,
-                        extraTitle = getString(R.string.invite_friends_rich_title)
+                        extraTitle = getString(CommonStrings.invite_friends_rich_title)
                 )
             }
         }

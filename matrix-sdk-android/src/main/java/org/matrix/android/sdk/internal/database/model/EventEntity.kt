@@ -47,7 +47,8 @@ internal open class EventEntity(
         @Index var rootThreadEventId: String? = null,
         // Number messages within the thread
         var numberOfThreads: Int = 0,
-        var threadSummaryLatestMessage: TimelineEventEntity? = null
+        var threadSummaryLatestMessage: TimelineEventEntity? = null,
+        var isVerificationStateDirty: Boolean? = null,
 ) : RealmObject() {
 
     private var sendStateStr: String = SendState.UNKNOWN.name
@@ -87,12 +88,14 @@ internal open class EventEntity(
                 payload = result.clearEvent,
                 senderKey = result.senderCurve25519Key,
                 keysClaimed = result.claimedEd25519Key?.let { mapOf("ed25519" to it) },
-                forwardingCurve25519KeyChain = result.forwardingCurve25519KeyChain
+                forwardingCurve25519KeyChain = result.forwardingCurve25519KeyChain,
+                verificationState = result.messageVerificationState
         )
         val adapter = MoshiProvider.providesMoshi().adapter(OlmDecryptionResult::class.java)
         decryptionResultJson = adapter.toJson(decryptionResult)
         decryptionErrorCode = null
         decryptionErrorReason = null
+        isVerificationStateDirty = false
 
         // If we have an EventInsertEntity for the eventId we make sures it can be processed now.
         realm.where(EventInsertEntity::class.java)

@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.attachments
@@ -30,18 +21,14 @@ import android.view.animation.TranslateAnimation
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.PopupWindow
-import androidx.annotation.StringRes
 import androidx.appcompat.widget.TooltipCompat
 import androidx.core.view.doOnNextLayout
 import androidx.core.view.isVisible
 import im.vector.app.R
 import im.vector.app.core.epoxy.onClick
-import im.vector.app.core.utils.PERMISSIONS_EMPTY
-import im.vector.app.core.utils.PERMISSIONS_FOR_FOREGROUND_LOCATION_SHARING
-import im.vector.app.core.utils.PERMISSIONS_FOR_PICKING_CONTACT
-import im.vector.app.core.utils.PERMISSIONS_FOR_TAKING_PHOTO
 import im.vector.app.databinding.ViewAttachmentTypeSelectorBinding
 import im.vector.app.features.attachments.AttachmentTypeSelectorView.Callback
+import im.vector.lib.strings.CommonStrings
 import kotlin.math.max
 
 private const val ANIMATION_DURATION = 250
@@ -58,7 +45,7 @@ class AttachmentTypeSelectorView(
 ) : PopupWindow(context) {
 
     interface Callback {
-        fun onTypeSelected(type: Type)
+        fun onTypeSelected(type: AttachmentType)
     }
 
     private val views: ViewAttachmentTypeSelectorBinding
@@ -68,13 +55,14 @@ class AttachmentTypeSelectorView(
     init {
         contentView = inflater.inflate(R.layout.view_attachment_type_selector, null, false)
         views = ViewAttachmentTypeSelectorBinding.bind(contentView)
-        views.attachmentGalleryButton.configure(Type.GALLERY)
-        views.attachmentCameraButton.configure(Type.CAMERA)
-        views.attachmentFileButton.configure(Type.FILE)
-        views.attachmentStickersButton.configure(Type.STICKER)
-        views.attachmentContactButton.configure(Type.CONTACT)
-        views.attachmentPollButton.configure(Type.POLL)
-        views.attachmentLocationButton.configure(Type.LOCATION)
+        views.attachmentGalleryButton.configure(AttachmentType.GALLERY)
+        views.attachmentCameraButton.configure(AttachmentType.CAMERA)
+        views.attachmentFileButton.configure(AttachmentType.FILE)
+        views.attachmentStickersButton.configure(AttachmentType.STICKER)
+        views.attachmentContactButton.configure(AttachmentType.CONTACT)
+        views.attachmentPollButton.configure(AttachmentType.POLL)
+        views.attachmentLocationButton.configure(AttachmentType.LOCATION)
+        views.attachmentVoiceBroadcast.configure(AttachmentType.VOICE_BROADCAST)
         width = LinearLayout.LayoutParams.MATCH_PARENT
         height = LinearLayout.LayoutParams.WRAP_CONTENT
         animationStyle = 0
@@ -125,15 +113,16 @@ class AttachmentTypeSelectorView(
         }
     }
 
-    fun setAttachmentVisibility(type: Type, isVisible: Boolean) {
+    fun setAttachmentVisibility(type: AttachmentType, isVisible: Boolean) {
         when (type) {
-            Type.CAMERA -> views.attachmentCameraButton
-            Type.GALLERY -> views.attachmentGalleryButton
-            Type.FILE -> views.attachmentFileButton
-            Type.STICKER -> views.attachmentStickersButton
-            Type.CONTACT -> views.attachmentContactButton
-            Type.POLL -> views.attachmentPollButton
-            Type.LOCATION -> views.attachmentLocationButton
+            AttachmentType.CAMERA -> views.attachmentCameraButton
+            AttachmentType.GALLERY -> views.attachmentGalleryButton
+            AttachmentType.FILE -> views.attachmentFileButton
+            AttachmentType.STICKER -> views.attachmentStickersButton
+            AttachmentType.CONTACT -> views.attachmentContactButton
+            AttachmentType.POLL -> views.attachmentPollButton
+            AttachmentType.LOCATION -> views.attachmentLocationButton
+            AttachmentType.VOICE_BROADCAST -> views.attachmentVoiceBroadcast
         }.let {
             it.isVisible = isVisible
         }
@@ -197,13 +186,13 @@ class AttachmentTypeSelectorView(
         return Pair(x, y)
     }
 
-    private fun ImageButton.configure(type: Type): ImageButton {
+    private fun ImageButton.configure(type: AttachmentType): ImageButton {
         this.setOnClickListener(TypeClickListener(type))
-        TooltipCompat.setTooltipText(this, context.getString(type.tooltipRes))
+        TooltipCompat.setTooltipText(this, context.getString(attachmentTooltipLabels.getValue(type)))
         return this
     }
 
-    private inner class TypeClickListener(private val type: Type) : View.OnClickListener {
+    private inner class TypeClickListener(private val type: AttachmentType) : View.OnClickListener {
 
         override fun onClick(v: View) {
             dismiss()
@@ -214,13 +203,18 @@ class AttachmentTypeSelectorView(
     /**
      * The all possible types to pick with their required permissions and tooltip resource.
      */
-    enum class Type(val permissions: List<String>, @StringRes val tooltipRes: Int) {
-        CAMERA(PERMISSIONS_FOR_TAKING_PHOTO, R.string.tooltip_attachment_photo),
-        GALLERY(PERMISSIONS_EMPTY, R.string.tooltip_attachment_gallery),
-        FILE(PERMISSIONS_EMPTY, R.string.tooltip_attachment_file),
-        STICKER(PERMISSIONS_EMPTY, R.string.tooltip_attachment_sticker),
-        CONTACT(PERMISSIONS_FOR_PICKING_CONTACT, R.string.tooltip_attachment_contact),
-        POLL(PERMISSIONS_EMPTY, R.string.tooltip_attachment_poll),
-        LOCATION(PERMISSIONS_FOR_FOREGROUND_LOCATION_SHARING, R.string.tooltip_attachment_location)
+    private companion object {
+        private val attachmentTooltipLabels: Map<AttachmentType, Int> = AttachmentType.values().associateWith {
+            when (it) {
+                AttachmentType.CAMERA -> CommonStrings.tooltip_attachment_photo
+                AttachmentType.GALLERY -> CommonStrings.tooltip_attachment_gallery
+                AttachmentType.FILE -> CommonStrings.tooltip_attachment_file
+                AttachmentType.STICKER -> CommonStrings.tooltip_attachment_sticker
+                AttachmentType.CONTACT -> CommonStrings.tooltip_attachment_contact
+                AttachmentType.POLL -> CommonStrings.tooltip_attachment_poll
+                AttachmentType.LOCATION -> CommonStrings.tooltip_attachment_location
+                AttachmentType.VOICE_BROADCAST -> CommonStrings.tooltip_attachment_voice_broadcast
+            }
+        }
     }
 }

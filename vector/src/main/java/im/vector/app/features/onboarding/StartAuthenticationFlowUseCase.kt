@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2022 New Vector Ltd
+ * Copyright 2022-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.onboarding
@@ -47,12 +38,17 @@ class StartAuthenticationFlowUseCase @Inject constructor(
             upstreamUrl = authFlow.homeServerUrl,
             preferredLoginMode = preferredLoginMode,
             supportedLoginTypes = authFlow.supportedLoginTypes,
-            isLogoutDevicesSupported = authFlow.isLogoutDevicesSupported
+            hasOidcCompatibilityFlow = authFlow.hasOidcCompatibilityFlow,
+            isLogoutDevicesSupported = authFlow.isLogoutDevicesSupported,
+            isLoginWithQrSupported = authFlow.isLoginWithQrSupported
     )
 
     private fun LoginFlowResult.findPreferredLoginMode() = when {
-        supportedLoginTypes.containsAllItems(LoginFlowTypes.SSO, LoginFlowTypes.PASSWORD) -> LoginMode.SsoAndPassword(ssoIdentityProviders.toSsoState())
-        supportedLoginTypes.contains(LoginFlowTypes.SSO) -> LoginMode.Sso(ssoIdentityProviders.toSsoState())
+        supportedLoginTypes.containsAllItems(LoginFlowTypes.SSO, LoginFlowTypes.PASSWORD) -> LoginMode.SsoAndPassword(
+                ssoIdentityProviders.toSsoState(),
+                hasOidcCompatibilityFlow
+        )
+        supportedLoginTypes.contains(LoginFlowTypes.SSO) -> LoginMode.Sso(ssoIdentityProviders.toSsoState(), hasOidcCompatibilityFlow)
         supportedLoginTypes.contains(LoginFlowTypes.PASSWORD) -> LoginMode.Password
         else -> LoginMode.Unsupported
     }

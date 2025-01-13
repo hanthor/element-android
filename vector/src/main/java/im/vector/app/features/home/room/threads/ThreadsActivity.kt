@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.threads
@@ -21,11 +12,11 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.fragment.app.FragmentTransaction
 import dagger.hilt.android.AndroidEntryPoint
-import im.vector.app.R
 import im.vector.app.core.extensions.addFragmentToBackstack
 import im.vector.app.core.extensions.replaceFragment
 import im.vector.app.core.platform.VectorBaseActivity
 import im.vector.app.databinding.ActivityThreadsBinding
+import im.vector.app.features.MainActivity
 import im.vector.app.features.analytics.extensions.toAnalyticsInteraction
 import im.vector.app.features.analytics.plan.Interaction
 import im.vector.app.features.home.AvatarRenderer
@@ -34,13 +25,13 @@ import im.vector.app.features.home.room.detail.arguments.TimelineArgs
 import im.vector.app.features.home.room.threads.arguments.ThreadListArgs
 import im.vector.app.features.home.room.threads.arguments.ThreadTimelineArgs
 import im.vector.app.features.home.room.threads.list.views.ThreadListFragment
+import im.vector.lib.core.utils.compat.getParcelableCompat
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class ThreadsActivity : VectorBaseActivity<ActivityThreadsBinding>() {
 
-    @Inject
-    lateinit var avatarRenderer: AvatarRenderer
+    @Inject lateinit var avatarRenderer: AvatarRenderer
 
 //    private val roomThreadDetailFragment: RoomThreadDetailFragment?
 //        get() {
@@ -99,10 +90,10 @@ class ThreadsActivity : VectorBaseActivity<ActivityThreadsBinding>() {
         analyticsTracker.capture(Interaction.Name.MobileThreadListThreadItem.toAnalyticsInteraction())
         val commonOption: (FragmentTransaction) -> Unit = {
             it.setCustomAnimations(
-                    R.anim.animation_slide_in_right,
-                    R.anim.animation_slide_out_left,
-                    R.anim.animation_slide_in_left,
-                    R.anim.animation_slide_out_right
+                    im.vector.lib.ui.styles.R.anim.animation_slide_in_right,
+                    im.vector.lib.ui.styles.R.anim.animation_slide_out_left,
+                    im.vector.lib.ui.styles.R.anim.animation_slide_in_left,
+                    im.vector.lib.ui.styles.R.anim.animation_slide_out_right
             )
         }
         addFragmentToBackstack(
@@ -129,8 +120,8 @@ class ThreadsActivity : VectorBaseActivity<ActivityThreadsBinding>() {
         return DisplayFragment.ErrorFragment
     }
 
-    private fun getThreadTimelineArgs(): ThreadTimelineArgs? = intent?.extras?.getParcelable(THREAD_TIMELINE_ARGS)
-    private fun getThreadListArgs(): ThreadListArgs? = intent?.extras?.getParcelable(THREAD_LIST_ARGS)
+    private fun getThreadTimelineArgs(): ThreadTimelineArgs? = intent?.extras?.getParcelableCompat(THREAD_TIMELINE_ARGS)
+    private fun getThreadListArgs(): ThreadListArgs? = intent?.extras?.getParcelableCompat(THREAD_LIST_ARGS)
     private fun getEventIdToNavigate(): String? = intent?.extras?.getString(THREAD_EVENT_ID_TO_NAVIGATE)
 
     companion object {
@@ -143,12 +134,19 @@ class ThreadsActivity : VectorBaseActivity<ActivityThreadsBinding>() {
                 context: Context,
                 threadTimelineArgs: ThreadTimelineArgs?,
                 threadListArgs: ThreadListArgs?,
-                eventIdToNavigate: String? = null
+                eventIdToNavigate: String? = null,
+                firstStartMainActivity: Boolean = false
         ): Intent {
-            return Intent(context, ThreadsActivity::class.java).apply {
+            val intent = Intent(context, ThreadsActivity::class.java).apply {
                 putExtra(THREAD_TIMELINE_ARGS, threadTimelineArgs)
                 putExtra(THREAD_EVENT_ID_TO_NAVIGATE, eventIdToNavigate)
                 putExtra(THREAD_LIST_ARGS, threadListArgs)
+            }
+
+            return if (firstStartMainActivity) {
+                MainActivity.getIntentWithNextIntent(context, intent)
+            } else {
+                intent
             }
         }
     }

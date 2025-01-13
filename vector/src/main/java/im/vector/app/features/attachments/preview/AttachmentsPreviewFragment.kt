@@ -1,18 +1,8 @@
 /*
- * Copyright 2020 New Vector Ltd
+ * Copyright 2020-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.attachments.preview
@@ -47,12 +37,14 @@ import im.vector.app.core.extensions.registerStartForActivityResult
 import im.vector.app.core.platform.VectorBaseFragment
 import im.vector.app.core.platform.VectorMenuProvider
 import im.vector.app.core.resources.ColorProvider
-import im.vector.app.core.time.Clock
 import im.vector.app.core.utils.OnSnapPositionChangeListener
 import im.vector.app.core.utils.SnapOnScrollListener
 import im.vector.app.core.utils.attachSnapHelperWithListener
 import im.vector.app.databinding.FragmentAttachmentsPreviewBinding
 import im.vector.app.features.media.createUCropWithDefaultSettings
+import im.vector.lib.core.utils.timer.Clock
+import im.vector.lib.strings.CommonPlurals
+import im.vector.lib.strings.CommonStrings
 import kotlinx.parcelize.Parcelize
 import org.matrix.android.sdk.api.extensions.orFalse
 import org.matrix.android.sdk.api.session.content.ContentAttachmentData
@@ -152,9 +144,9 @@ class AttachmentsPreviewFragment :
         val nbImages = state.attachments.count { it.type == ContentAttachmentData.Type.IMAGE }
         val nbVideos = state.attachments.count { it.type == ContentAttachmentData.Type.VIDEO }
         return when {
-            nbVideos == 0 -> resources.getQuantityString(R.plurals.send_images_with_original_size, nbImages)
-            nbImages == 0 -> resources.getQuantityString(R.plurals.send_videos_with_original_size, nbVideos)
-            else -> getString(R.string.send_images_and_video_with_original_size)
+            nbVideos == 0 -> resources.getQuantityString(CommonPlurals.send_images_with_original_size, nbImages)
+            nbImages == 0 -> resources.getQuantityString(CommonPlurals.send_videos_with_original_size, nbVideos)
+            else -> getString(CommonStrings.send_images_and_video_with_original_size)
         }
     }
 
@@ -169,11 +161,11 @@ class AttachmentsPreviewFragment :
         )
     }
 
-    @Suppress("DEPRECATION")
     private fun applyInsets() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             activity?.window?.setDecorFitsSystemWindows(false)
         } else {
+            @Suppress("DEPRECATION")
             view?.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
         }
         ViewCompat.setOnApplyWindowInsetsListener(views.attachmentPreviewerBottomContainer) { v, insets ->
@@ -207,13 +199,13 @@ class AttachmentsPreviewFragment :
         attachmentMiniaturePreviewController.callback = this
 
         views.attachmentPreviewerMiniatureList.let {
-            it.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+            it.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
             it.setHasFixedSize(true)
             it.adapter = attachmentMiniaturePreviewController.adapter
         }
 
         views.attachmentPreviewerBigList.let {
-            it.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+            it.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
             it.attachSnapHelperWithListener(
                     PagerSnapHelper(),
                     SnapOnScrollListener.Behavior.NOTIFY_ON_SCROLL_STATE_IDLE,

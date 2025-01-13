@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2022 New Vector Ltd
+ * Copyright 2022-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.location.live.map
@@ -27,10 +18,11 @@ import im.vector.app.core.epoxy.VectorEpoxyHolder
 import im.vector.app.core.epoxy.VectorEpoxyModel
 import im.vector.app.core.epoxy.onClick
 import im.vector.app.core.resources.StringProvider
-import im.vector.app.core.time.Clock
 import im.vector.app.core.utils.TextUtils
 import im.vector.app.features.home.AvatarRenderer
+import im.vector.lib.core.utils.timer.Clock
 import im.vector.lib.core.utils.timer.CountUpTimer
+import im.vector.lib.strings.CommonStrings
 import org.matrix.android.sdk.api.util.MatrixItem
 import org.threeten.bp.Duration
 
@@ -79,12 +71,12 @@ abstract class LiveLocationUserItem : VectorEpoxyModel<LiveLocationUserItem.Hold
             }
         }
 
-        holder.timer.tickListener = object : CountUpTimer.TickListener {
-            override fun onTick(milliseconds: Long) {
+        holder.timer.apply {
+            tickListener = CountUpTimer.TickListener {
                 holder.itemLastUpdatedAtTextView.text = getFormattedLastUpdatedAt(locationUpdateTimeMillis)
             }
+            start()
         }
-        holder.timer.resume()
 
         holder.view.setOnClickListener { callback?.onUserSelected(matrixItem.id) }
     }
@@ -103,11 +95,11 @@ abstract class LiveLocationUserItem : VectorEpoxyModel<LiveLocationUserItem.Hold
         val elapsedTime = clock.epochMillis() - locationUpdateTimeMillis
         val duration = Duration.ofMillis(elapsedTime.coerceAtLeast(0L))
         val formattedDuration = TextUtils.formatDurationWithUnits(stringProvider, duration, appendSeconds = false)
-        return stringProvider.getString(R.string.live_location_bottom_sheet_last_updated_at, formattedDuration)
+        return stringProvider.getString(CommonStrings.live_location_bottom_sheet_last_updated_at, formattedDuration)
     }
 
     class Holder : VectorEpoxyHolder() {
-        val timer: CountUpTimer = CountUpTimer(1000)
+        val timer: CountUpTimer = CountUpTimer(intervalInMs = 1000)
         val itemUserAvatarImageView by bind<ImageView>(R.id.itemUserAvatarImageView)
         val itemUserDisplayNameTextView by bind<TextView>(R.id.itemUserDisplayNameTextView)
         val itemRemainingTimeTextView by bind<TextView>(R.id.itemRemainingTimeTextView)

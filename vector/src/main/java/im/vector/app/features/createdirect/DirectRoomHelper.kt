@@ -1,26 +1,17 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.createdirect
 
-import im.vector.app.features.VectorFeatures
 import im.vector.app.features.analytics.AnalyticsTracker
 import im.vector.app.features.analytics.plan.CreatedRoom
 import im.vector.app.features.raw.wellknown.getElementWellknown
 import im.vector.app.features.raw.wellknown.isE2EByDefault
+import im.vector.app.features.settings.VectorPreferences
 import org.matrix.android.sdk.api.extensions.orFalse
 import org.matrix.android.sdk.api.extensions.tryOrNull
 import org.matrix.android.sdk.api.raw.RawService
@@ -32,7 +23,7 @@ class DirectRoomHelper @Inject constructor(
         private val rawService: RawService,
         private val session: Session,
         private val analyticsTracker: AnalyticsTracker,
-        private val vectorFeatures: VectorFeatures,
+        private val vectorPreferences: VectorPreferences,
 ) {
 
     suspend fun ensureDMExists(userId: String): String {
@@ -50,7 +41,7 @@ class DirectRoomHelper @Inject constructor(
                 setDirectMessage()
                 enableEncryptionIfInvitedUsersSupportIt = adminE2EByDefault
             }
-            roomId = if (vectorFeatures.shouldStartDmOnFirstMessage()) {
+            roomId = if (vectorPreferences.isDeferredDmEnabled()) {
                 session.roomService().createLocalRoom(roomParams)
             } else {
                 analyticsTracker.capture(CreatedRoom(isDM = roomParams.isDirect.orFalse()))

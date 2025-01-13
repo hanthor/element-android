@@ -40,57 +40,57 @@ import kotlin.coroutines.resume
 class DeactivateAccountTest : InstrumentedTest {
 
     @Test
-    fun deactivateAccountTest() = runSessionTest(context(), false /* session will be deactivated */) { commonTestHelper ->
+    fun deactivateAccountTest() = runSessionTest(context(), autoSignoutOnClose = false /* session will be deactivated */) { commonTestHelper ->
         val session = commonTestHelper.createAccount(TestConstants.USER_ALICE, SessionTestParams(withInitialSync = true))
 
         // Deactivate the account
-        commonTestHelper.runBlockingTest {
-            session.accountService().deactivateAccount(
-                    eraseAllData = false,
-                    userInteractiveAuthInterceptor = object : UserInteractiveAuthInterceptor {
-                        override fun performStage(flowResponse: RegistrationFlowResponse, errCode: String?, promise: Continuation<UIABaseAuth>) {
-                            promise.resume(
-                                    UserPasswordAuth(
-                                            user = session.myUserId,
-                                            password = TestConstants.PASSWORD,
-                                            session = flowResponse.session
-                                    )
-                            )
-                        }
+        session.accountService().deactivateAccount(
+                eraseAllData = false,
+                userInteractiveAuthInterceptor = object : UserInteractiveAuthInterceptor {
+                    override fun performStage(flowResponse: RegistrationFlowResponse, errCode: String?, promise: Continuation<UIABaseAuth>) {
+                        promise.resume(
+                                UserPasswordAuth(
+                                        user = session.myUserId,
+                                        password = TestConstants.PASSWORD,
+                                        session = flowResponse.session
+                                )
+                        )
                     }
-            )
-        }
+                }
+        )
 
         // Try to login on the previous account, it will fail (M_USER_DEACTIVATED)
         val throwable = commonTestHelper.logAccountWithError(session.myUserId, TestConstants.PASSWORD)
 
         // Test the error
         assertTrue(
+                "Unexpected deactivated error $throwable",
                 throwable is Failure.ServerError &&
-                        throwable.error.code == MatrixError.M_USER_DEACTIVATED &&
-                        throwable.error.message == "This account has been deactivated"
+                        (
+                                (throwable.error.code == MatrixError.M_USER_DEACTIVATED &&
+                                        throwable.error.message == "This account has been deactivated") ||
+                                        // Workaround for a breaking change on synapse to fix CI
+                                        // https://github.com/matrix-org/synapse/issues/15747
+                                        throwable.error.code == MatrixError.M_FORBIDDEN
+                                )
         )
 
         // Try to create an account with the deactivate account user id, it will fail (M_USER_IN_USE)
         val hs = commonTestHelper.createHomeServerConfig()
 
-        commonTestHelper.runBlockingTest {
-            commonTestHelper.matrix.authenticationService.getLoginFlow(hs)
-        }
+        commonTestHelper.matrix.authenticationService.getLoginFlow(hs)
 
         var accountCreationError: Throwable? = null
-        commonTestHelper.runBlockingTest {
-            try {
-                commonTestHelper.matrix.authenticationService
-                        .getRegistrationWizard()
-                        .createAccount(
-                                session.myUserId.substringAfter("@").substringBefore(":"),
-                                TestConstants.PASSWORD,
-                                null
-                        )
-            } catch (failure: Throwable) {
-                accountCreationError = failure
-            }
+        try {
+            commonTestHelper.matrix.authenticationService
+                    .getRegistrationWizard()
+                    .createAccount(
+                            session.myUserId.substringAfter("@").substringBefore(":"),
+                            TestConstants.PASSWORD,
+                            null
+                    )
+        } catch (failure: Throwable) {
+            accountCreationError = failure
         }
 
         // Test the error

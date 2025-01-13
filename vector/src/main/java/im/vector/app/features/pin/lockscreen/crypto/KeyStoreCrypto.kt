@@ -1,22 +1,12 @@
 /*
- * Copyright (c) 2022 New Vector Ltd
+ * Copyright 2022-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.pin.lockscreen.crypto
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.security.keystore.KeyPermanentlyInvalidatedException
@@ -55,7 +45,6 @@ class KeyStoreCrypto @AssistedInject constructor(
      * Ensures a [Key] for the [alias] exists and validates it.
      * @throws KeyPermanentlyInvalidatedException if key is not valid.
      */
-    @SuppressLint("NewApi")
     @Throws(KeyPermanentlyInvalidatedException::class)
     fun ensureKey() = secretStoringUtils.ensureKey(alias).also {
         // Check validity of Key by initializing an encryption Cipher
@@ -109,10 +98,9 @@ class KeyStoreCrypto @AssistedInject constructor(
     /**
      * Check if the key associated with the [alias] is valid.
      */
-    @SuppressLint("NewApi")
     fun hasValidKey(): Boolean {
         val keyExists = hasKey()
-        return if (buildVersionSdkIntProvider.get() >= Build.VERSION_CODES.M && keyExists) {
+        return if (buildVersionSdkIntProvider.isAtLeast(Build.VERSION_CODES.M) && keyExists) {
             val initializedKey = tryOrNull("Error validating lockscreen system key.") { ensureKey() }
             initializedKey != null
         } else {

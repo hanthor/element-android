@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2022 New Vector Ltd
+ * Copyright 2022-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.ui.robot.space
@@ -28,11 +19,11 @@ import androidx.test.espresso.matcher.ViewMatchers.withText
 import com.adevinta.android.barista.interaction.BaristaClickInteractions.clickOn
 import im.vector.app.R
 import im.vector.app.espresso.tools.waitUntilActivityVisible
-import im.vector.app.espresso.tools.waitUntilDialogVisible
 import im.vector.app.espresso.tools.waitUntilViewVisible
 import im.vector.app.features.home.HomeActivity
 import im.vector.app.features.home.room.detail.RoomDetailActivity
 import im.vector.app.features.spaces.manage.SpaceManageActivity
+import im.vector.lib.strings.CommonStrings
 
 class SpaceCreateRobot {
 
@@ -40,7 +31,7 @@ class SpaceCreateRobot {
         // public
         clickOn(R.id.publicButton)
         waitUntilViewVisible(withId(R.id.recyclerView))
-        onView(ViewMatchers.withHint(R.string.create_room_name_hint)).perform(ViewActions.replaceText(name))
+        onView(ViewMatchers.withHint(CommonStrings.create_room_name_hint)).perform(ViewActions.replaceText(name))
         clickOn(R.id.nextButton)
         waitUntilViewVisible(withId(R.id.recyclerView))
         pressBack()
@@ -69,7 +60,7 @@ class SpaceCreateRobot {
         onView(withId(R.id.roomList))
                 .perform(
                         RecyclerViewActions.actionOnItem<RecyclerView.ViewHolder>(
-                                ViewMatchers.hasDescendant(withText(R.string.room_displayname_empty_room)),
+                                ViewMatchers.hasDescendant(withText(CommonStrings.room_displayname_empty_room)),
                                 click()
                         ).atPosition(0)
                 )
@@ -82,18 +73,21 @@ class SpaceCreateRobot {
     fun createPublicSpace(spaceName: String) {
         clickOn(R.id.publicButton)
         waitUntilViewVisible(withId(R.id.recyclerView))
-        onView(ViewMatchers.withHint(R.string.create_room_name_hint)).perform(ViewActions.replaceText(spaceName))
+        onView(ViewMatchers.withHint(CommonStrings.create_room_name_hint)).perform(ViewActions.replaceText(spaceName))
         clickOn(R.id.nextButton)
         waitUntilViewVisible(withId(R.id.recyclerView))
         clickOn(R.id.nextButton)
+//        waitUntilActivityVisible<RoomDetailActivity> {
+//            waitUntilDialogVisible(withId(R.id.inviteByMxidButton))
+//        }
+//        // close invite dialog
+//        pressBack()
         waitUntilActivityVisible<RoomDetailActivity> {
-            waitUntilDialogVisible(withId(R.id.inviteByMxidButton))
+            pressBack()
         }
-        // close invite dialog
-        pressBack()
-        waitUntilViewVisible(withId(R.id.timelineRecyclerView))
+//        waitUntilViewVisible(withId(R.id.timelineRecyclerView))
         // close room
-        pressBack()
+//        pressBack()
         waitUntilViewVisible(withId(R.id.roomListContainer))
     }
 }

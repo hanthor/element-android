@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.onboarding.ftueauth
@@ -34,7 +25,10 @@ import im.vector.app.features.login.SignMode
 import im.vector.app.features.login.SocialLoginButtonsView.Mode
 import im.vector.app.features.login.render
 import im.vector.app.features.onboarding.OnboardingAction
+import im.vector.app.features.onboarding.OnboardingFlow
 import im.vector.app.features.onboarding.OnboardingViewState
+import im.vector.lib.strings.CommonStrings
+import org.matrix.android.sdk.api.auth.SSOAction
 
 /**
  * In this screen, the user is asked to sign up or to sign in to the homeserver.
@@ -62,18 +56,18 @@ class FtueAuthSignUpSignInSelectionFragment :
         when (state.serverType) {
             ServerType.MatrixOrg -> renderServerInformation(
                     icon = R.drawable.ic_logo_matrix_org,
-                    title = getString(R.string.login_connect_to, state.selectedHomeserver.userFacingUrl.toReducedUrl()),
-                    subtitle = getString(R.string.login_server_matrix_org_text)
+                    title = getString(CommonStrings.login_connect_to, state.selectedHomeserver.userFacingUrl.toReducedUrl()),
+                    subtitle = getString(CommonStrings.login_server_matrix_org_text)
             )
             ServerType.EMS -> renderServerInformation(
                     icon = R.drawable.ic_logo_element_matrix_services,
-                    title = getString(R.string.login_connect_to_modular),
+                    title = getString(CommonStrings.login_connect_to_modular),
                     subtitle = state.selectedHomeserver.userFacingUrl.toReducedUrl()
             )
             ServerType.Other -> renderServerInformation(
                     icon = null,
-                    title = getString(R.string.login_server_other_title),
-                    subtitle = getString(R.string.login_connect_to, state.selectedHomeserver.userFacingUrl.toReducedUrl())
+                    title = getString(CommonStrings.login_server_other_title),
+                    subtitle = getString(CommonStrings.login_connect_to, state.selectedHomeserver.userFacingUrl.toReducedUrl())
             )
             ServerType.Unknown -> Unit /* Should not happen */
         }
@@ -81,11 +75,12 @@ class FtueAuthSignUpSignInSelectionFragment :
         when (state.selectedHomeserver.preferredLoginMode) {
             is LoginMode.SsoAndPassword -> {
                 views.loginSignupSigninSignInSocialLoginContainer.isVisible = true
-                views.loginSignupSigninSocialLoginButtons.render(state.selectedHomeserver.preferredLoginMode.ssoState, Mode.MODE_CONTINUE) { provider ->
+                views.loginSignupSigninSocialLoginButtons.render(state.selectedHomeserver.preferredLoginMode, Mode.MODE_CONTINUE) { provider ->
                     viewModel.fetchSsoUrl(
                             redirectUrl = SSORedirectRouterActivity.VECTOR_REDIRECT_URL,
                             deviceId = state.deviceId,
-                            provider = provider
+                            provider = provider,
+                            action = if (state.signMode == SignMode.SignUp) SSOAction.REGISTER else SSOAction.LOGIN
                     )
                             ?.let { openInCustomTab(it) }
                 }
@@ -110,11 +105,12 @@ class FtueAuthSignUpSignInSelectionFragment :
         when (state.selectedHomeserver.preferredLoginMode) {
             is LoginMode.Sso -> {
                 // change to only one button that is sign in with sso
-                views.loginSignupSigninSubmit.text = getString(R.string.login_signin_sso)
+                views.loginSignupSigninSubmit.text =
+                        getString(if (state.selectedHomeserver.hasOidcCompatibilityFlow) CommonStrings.login_continue else CommonStrings.login_signin_sso)
                 views.loginSignupSigninSignIn.isVisible = false
             }
             else -> {
-                views.loginSignupSigninSubmit.text = getString(R.string.login_signup)
+                views.loginSignupSigninSubmit.text = getString(CommonStrings.login_signup)
                 views.loginSignupSigninSignIn.isVisible = true
             }
         }
@@ -125,7 +121,8 @@ class FtueAuthSignUpSignInSelectionFragment :
             viewModel.fetchSsoUrl(
                     redirectUrl = SSORedirectRouterActivity.VECTOR_REDIRECT_URL,
                     deviceId = state.deviceId,
-                    provider = null
+                    provider = null,
+                    action = if (state.onboardingFlow == OnboardingFlow.SignUp) SSOAction.REGISTER else SSOAction.LOGIN
             )
                     ?.let { openInCustomTab(it) }
         } else {
@@ -144,5 +141,7 @@ class FtueAuthSignUpSignInSelectionFragment :
     override fun updateWithState(state: OnboardingViewState) {
         render(state)
         setupButtons(state)
+        // if talking to OIDC enabled homeserver in compatibility mode then immediately start SSO
+        if (state.selectedHomeserver.hasOidcCompatibilityFlow) submit()
     }
 }

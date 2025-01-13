@@ -1,23 +1,18 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.detail.timeline.helper
 
 import im.vector.app.core.extensions.localDateTime
 import im.vector.app.core.resources.UserPreferencesProvider
+import im.vector.app.features.voicebroadcast.VoiceBroadcastConstants
+import im.vector.app.features.voicebroadcast.isVoiceBroadcast
+import im.vector.app.features.voicebroadcast.model.VoiceBroadcastState
+import im.vector.app.features.voicebroadcast.model.asVoiceBroadcastEvent
 import org.matrix.android.sdk.api.session.events.model.Event
 import org.matrix.android.sdk.api.session.events.model.EventType
 import org.matrix.android.sdk.api.session.events.model.RelationType
@@ -28,6 +23,7 @@ import org.matrix.android.sdk.api.session.events.model.toModel
 import org.matrix.android.sdk.api.session.room.model.Membership
 import org.matrix.android.sdk.api.session.room.model.RoomMemberContent
 import org.matrix.android.sdk.api.session.room.model.localecho.RoomLocalEcho
+import org.matrix.android.sdk.api.session.room.model.message.asMessageAudioEvent
 import org.matrix.android.sdk.api.session.room.timeline.TimelineEvent
 import javax.inject.Inject
 
@@ -146,16 +142,20 @@ class TimelineEventVisibilityHelper @Inject constructor(
             rootThreadEventId: String?,
             isFromThreadTimeline: Boolean
     ): List<TimelineEvent> {
-        val prevSub = timelineEvents
-                .subList(0, index + 1)
-                // Ensure to not take the REDACTION events into account
-                .filter { it.root.getClearType() != EventType.REDACTION }
-        return prevSub
+        val prevDisplayableEvents = timelineEvents.subList(0, index + 1)
+                .filter {
+                    shouldShowEvent(
+                            timelineEvent = it,
+                            highlightedEventId = eventIdToHighlight,
+                            isFromThreadTimeline = isFromThreadTimeline,
+                            rootThreadEventId = rootThreadEventId)
+                }
+        return prevDisplayableEvents
                 .reversed()
                 .let {
                     nextEventsUntil(it, 0, minSize, eventIdToHighlight, rootThreadEventId, isFromThreadTimeline, object : PredicateToStopSearch {
                         override fun shouldStopSearch(oldEvent: Event, newEvent: Event): Boolean {
-                            return oldEvent.isRedacted() && !newEvent.isRedacted()
+                            return !newEvent.isRedacted()
                         }
                     })
                 }
@@ -242,8 +242,17 @@ class TimelineEventVisibilityHelper @Inject constructor(
             } else root.eventId != rootThreadEventId
         }
 
-        if (root.getClearType() in EventType.BEACON_LOCATION_DATA) {
+        if (root.getClearType() in EventType.BEACON_LOCATION_DATA.values) {
             return !root.isRedacted()
+        }
+
+        if (root.getClearType() == VoiceBroadcastConstants.STATE_ROOM_VOICE_BROADCAST_INFO &&
+                root.asVoiceBroadcastEvent()?.content?.voiceBroadcastState !in arrayOf(VoiceBroadcastState.STARTED, VoiceBroadcastState.STOPPED)) {
+            return true
+        }
+
+        if (root.asMessageAudioEvent().isVoiceBroadcast()) {
+            return true
         }
 
         return false

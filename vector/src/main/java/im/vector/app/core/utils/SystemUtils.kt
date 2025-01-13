@@ -1,17 +1,8 @@
 /*
- * Copyright 2018 New Vector Ltd
+ * Copyright 2018-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.core.utils
@@ -19,8 +10,6 @@ package im.vector.app.core.utils
 import android.annotation.TargetApi
 import android.app.Activity
 import android.content.ActivityNotFoundException
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -34,8 +23,9 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.StringRes
 import androidx.core.content.getSystemService
 import androidx.fragment.app.Fragment
-import im.vector.app.R
 import im.vector.app.features.notifications.NotificationUtils
+import im.vector.lib.strings.CommonStrings
+import org.matrix.android.sdk.api.util.getApplicationInfoCompat
 
 /**
  * Tells if the application ignores battery optimizations.
@@ -65,7 +55,7 @@ fun Context.isAnimationEnabled(): Boolean {
  */
 fun Context.getApplicationLabel(packageName: String): String {
     return try {
-        val ai = packageManager.getApplicationInfo(packageName, 0)
+        val ai = packageManager.getApplicationInfoCompat(packageName, 0)
         packageManager.getApplicationLabel(ai).toString()
     } catch (e: PackageManager.NameNotFoundException) {
         packageName
@@ -99,9 +89,8 @@ fun requestDisablingBatteryOptimization(activity: Activity, activityResultLaunch
  * @param showToast true to also show a Toast to the user
  * @param toastMessage content of the toast message as a String resource
  */
-fun copyToClipboard(context: Context, text: CharSequence, showToast: Boolean = true, @StringRes toastMessage: Int = R.string.copied_to_clipboard) {
-    val clipboard = context.getSystemService<ClipboardManager>()!!
-    clipboard.setPrimaryClip(ClipData.newPlainText("", text))
+fun copyToClipboard(context: Context, text: CharSequence, showToast: Boolean = true, @StringRes toastMessage: Int = CommonStrings.copied_to_clipboard) {
+    CopyToClipboardUseCase(context).execute(text)
     if (showToast) {
         context.toast(toastMessage)
     }
@@ -143,7 +132,7 @@ fun startAddGoogleAccountIntent(context: Context, activityResultLauncher: Activi
     try {
         activityResultLauncher.launch(intent)
     } catch (activityNotFoundException: ActivityNotFoundException) {
-        context.toast(R.string.error_no_external_application_found)
+        context.toast(CommonStrings.error_no_external_application_found)
     }
 }
 
@@ -154,7 +143,7 @@ fun startInstallFromSourceIntent(context: Context, activityResultLauncher: Activ
     try {
         activityResultLauncher.launch(intent)
     } catch (activityNotFoundException: ActivityNotFoundException) {
-        context.toast(R.string.error_no_external_application_found)
+        context.toast(CommonStrings.error_no_external_application_found)
     }
 }
 
@@ -185,7 +174,7 @@ fun startSharePlainTextIntent(
             context.startActivity(intent)
         }
     } catch (activityNotFoundException: ActivityNotFoundException) {
-        context.toast(R.string.error_no_external_application_found)
+        context.toast(CommonStrings.error_no_external_application_found)
     }
 }
 
@@ -196,7 +185,7 @@ fun startImportTextFromFileIntent(context: Context, activityResultLauncher: Acti
     try {
         activityResultLauncher.launch(intent)
     } catch (activityNotFoundException: ActivityNotFoundException) {
-        context.toast(R.string.error_no_external_application_found)
+        context.toast(CommonStrings.error_no_external_application_found)
     }
 }
 

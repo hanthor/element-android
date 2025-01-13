@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.login
@@ -26,19 +17,20 @@ import com.airbnb.mvrx.Uninitialized
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
-import im.vector.app.R
 import im.vector.app.core.di.ActiveSessionHolder
 import im.vector.app.core.di.MavericksAssistedViewModelFactory
 import im.vector.app.core.di.hiltMavericksViewModelFactory
-import im.vector.app.core.extensions.configureAndStart
 import im.vector.app.core.platform.VectorViewModel
 import im.vector.app.core.resources.StringProvider
+import im.vector.app.core.session.ConfigureAndStartSessionUseCase
 import im.vector.app.core.utils.ensureTrailingSlash
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.matrix.android.sdk.api.MatrixPatterns.getServerName
 import org.matrix.android.sdk.api.auth.AuthenticationService
 import org.matrix.android.sdk.api.auth.HomeServerHistoryService
+import org.matrix.android.sdk.api.auth.SSOAction
 import org.matrix.android.sdk.api.auth.data.HomeServerConnectionConfig
 import org.matrix.android.sdk.api.auth.data.LoginFlowTypes
 import org.matrix.android.sdk.api.auth.login.LoginWizard
@@ -64,7 +56,8 @@ class LoginViewModel @AssistedInject constructor(
         private val homeServerConnectionConfigFactory: HomeServerConnectionConfigFactory,
         private val reAuthHelper: ReAuthHelper,
         private val stringProvider: StringProvider,
-        private val homeServerHistoryService: HomeServerHistoryService
+        private val homeServerHistoryService: HomeServerHistoryService,
+        private val configureAndStartSessionUseCase: ConfigureAndStartSessionUseCase,
 ) : VectorViewModel<LoginViewState, LoginAction, LoginViewEvents>(initialState) {
 
     @AssistedFactory
@@ -88,7 +81,7 @@ class LoginViewModel @AssistedInject constructor(
     private var lastAction: LoginAction? = null
     private var currentHomeServerConnectionConfig: HomeServerConnectionConfig? = null
 
-    private val matrixOrgUrl = stringProvider.getString(R.string.matrix_org_server_url).ensureTrailingSlash()
+    private val matrixOrgUrl = stringProvider.getString(im.vector.app.config.R.string.matrix_org_server_url).ensureTrailingSlash()
 
     val currentThreePid: String?
         get() = registrationWizard?.getCurrentThreePid()
@@ -223,7 +216,7 @@ class LoginViewModel @AssistedInject constructor(
         setState {
             copy(
                     signMode = SignMode.SignIn,
-                    loginMode = LoginMode.Sso(action.ssoIdentityProviders.toSsoState()),
+                    loginMode = LoginMode.Sso(action.ssoIdentityProviders.toSsoState(), action.hasOidcCompatibilityFlow),
                     homeServerUrlFromUser = action.homeServerUrl,
                     homeServerUrl = action.homeServerUrl,
                     deviceId = action.deviceId
@@ -610,7 +603,7 @@ class LoginViewModel @AssistedInject constructor(
                     asyncLoginAction = Uninitialized
             )
         }
-        _viewEvents.post(LoginViewEvents.Failure(Exception(stringProvider.getString(R.string.autodiscover_well_known_error))))
+        _viewEvents.post(LoginViewEvents.Failure(Exception(stringProvider.getString(CommonStrings.autodiscover_well_known_error))))
     }
 
     private suspend fun onWellknownSuccess(
@@ -684,7 +677,7 @@ class LoginViewModel @AssistedInject constructor(
             currentJob = viewModelScope.launch {
                 try {
                     safeLoginWizard.login(
-                            action.username,
+                            action.username.trim(),
                             action.password,
                             action.initialDeviceName
                     )
@@ -732,7 +725,7 @@ class LoginViewModel @AssistedInject constructor(
         activeSessionHolder.setActiveSession(session)
 
         authenticationService.reset()
-        session.configureAndStart(applicationContext)
+        configureAndStartSessionUseCase.execute(session)
         setState {
             copy(
                     asyncLoginAction = Success(Unit)
@@ -816,8 +809,11 @@ class LoginViewModel @AssistedInject constructor(
             val loginMode = when {
                 // SSO login is taken first
                 data.supportedLoginTypes.contains(LoginFlowTypes.SSO) &&
-                        data.supportedLoginTypes.contains(LoginFlowTypes.PASSWORD) -> LoginMode.SsoAndPassword(data.ssoIdentityProviders.toSsoState())
-                data.supportedLoginTypes.contains(LoginFlowTypes.SSO) -> LoginMode.Sso(data.ssoIdentityProviders.toSsoState())
+                        data.supportedLoginTypes.contains(LoginFlowTypes.PASSWORD) -> LoginMode.SsoAndPassword(
+                            data.ssoIdentityProviders.toSsoState(),
+                            data.hasOidcCompatibilityFlow
+                        )
+                data.supportedLoginTypes.contains(LoginFlowTypes.SSO) -> LoginMode.Sso(data.ssoIdentityProviders.toSsoState(), data.hasOidcCompatibilityFlow)
                 data.supportedLoginTypes.contains(LoginFlowTypes.PASSWORD) -> LoginMode.Password
                 else -> LoginMode.Unsupported
             }
@@ -844,8 +840,8 @@ class LoginViewModel @AssistedInject constructor(
         return loginConfig?.homeServerUrl
     }
 
-    fun getSsoUrl(redirectUrl: String, deviceId: String?, providerId: String?): String? {
-        return authenticationService.getSsoUrl(redirectUrl, deviceId, providerId)
+    fun getSsoUrl(redirectUrl: String, deviceId: String?, providerId: String?, action: SSOAction): String? {
+        return authenticationService.getSsoUrl(redirectUrl, deviceId, providerId, action)
     }
 
     fun getFallbackUrl(forSignIn: Boolean, deviceId: String?): String? {

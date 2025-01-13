@@ -1,30 +1,22 @@
 /*
- * Copyright (c) 2022 New Vector Ltd
+ * Copyright 2022-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.onboarding
 
 import android.net.Uri
 import android.os.Build
-import com.airbnb.mvrx.test.MvRxTestRule
-import im.vector.app.R
+import com.airbnb.mvrx.test.MavericksTestRule
+import im.vector.app.core.session.ConfigureAndStartSessionUseCase
 import im.vector.app.features.login.LoginConfig
 import im.vector.app.features.login.LoginMode
 import im.vector.app.features.login.ReAuthHelper
 import im.vector.app.features.login.ServerType
 import im.vector.app.features.login.SignMode
+import im.vector.app.features.mdm.NoOpMdmService
 import im.vector.app.features.onboarding.RegistrationStateFixture.aRegistrationState
 import im.vector.app.features.onboarding.StartAuthenticationFlowUseCase.StartAuthenticationResult
 import im.vector.app.test.TestBuildVersionSdkIntProvider
@@ -50,11 +42,13 @@ import im.vector.app.test.fixtures.a401ServerError
 import im.vector.app.test.fixtures.aHomeServerCapabilities
 import im.vector.app.test.fixtures.anUnrecognisedCertificateError
 import im.vector.app.test.test
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.amshove.kluent.shouldBeEqualTo
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.matrix.android.sdk.api.auth.SSOAction
 import org.matrix.android.sdk.api.auth.data.HomeServerConnectionConfig
 import org.matrix.android.sdk.api.auth.data.SsoIdentityProvider
 import org.matrix.android.sdk.api.auth.registration.Stage
@@ -76,11 +70,12 @@ private val A_FINGERPRINT = Fingerprint(ByteArray(1), Fingerprint.HashType.SHA1)
 private val ANY_CONTINUING_REGISTRATION_RESULT = RegistrationActionHandler.Result.NextStage(Stage.Dummy(mandatory = true))
 private val A_DIRECT_LOGIN = OnboardingAction.AuthenticateAction.LoginDirect("@a-user:id.org", "a-password", "a-device-name")
 private const val A_HOMESERVER_URL = "https://edited-homeserver.org"
-private val A_DEFAULT_HOMESERVER_URL = "${R.string.matrix_org_server_url.toTestString()}/"
+private val A_DEFAULT_HOMESERVER_URL = "${im.vector.app.config.R.string.matrix_org_server_url.toTestString()}/"
 private val A_HOMESERVER_CONFIG = HomeServerConnectionConfig(FakeUri().instance)
 private val SELECTED_HOMESERVER_STATE = SelectedHomeserverState(preferredLoginMode = LoginMode.Password, userFacingUrl = A_HOMESERVER_URL)
 private val SELECTED_HOMESERVER_STATE_SUPPORTED_LOGOUT_DEVICES = SelectedHomeserverState(isLogoutDevicesSupported = true)
 private val DEFAULT_SELECTED_HOMESERVER_STATE = SELECTED_HOMESERVER_STATE.copy(userFacingUrl = A_DEFAULT_HOMESERVER_URL)
+private val DEFAULT_SELECTED_HOMESERVER_STATE_WITH_QR_SUPPORTED = DEFAULT_SELECTED_HOMESERVER_STATE.copy(isLoginWithQrSupported = true)
 private const val AN_EMAIL = "hello@example.com"
 private const val A_PASSWORD = "a-password"
 private const val A_USERNAME = "hello-world"
@@ -96,7 +91,7 @@ private val SSO_REGISTRATION_DESCRIPTION = AuthenticationDescription.Register(Au
 class OnboardingViewModelTest {
 
     @get:Rule
-    val mvrxTestRule = MvRxTestRule()
+    val mavericksTestRule = MavericksTestRule()
 
     private val fakeUri = FakeUri()
     private val fakeContext = FakeContext()
@@ -111,6 +106,7 @@ class OnboardingViewModelTest {
     private val fakeStartAuthenticationFlowUseCase = FakeStartAuthenticationFlowUseCase()
     private val fakeHomeServerHistoryService = FakeHomeServerHistoryService()
     private val fakeLoginWizard = FakeLoginWizard()
+    private val fakeConfigureAndStartSessionUseCase = mockk<ConfigureAndStartSessionUseCase>()
 
     private var initialState = OnboardingViewState()
     private lateinit var viewModel: OnboardingViewModel
@@ -594,7 +590,7 @@ class OnboardingViewModelTest {
 
     @Test
     fun `when editing homeserver errors with certificate error, then emits error`() = runTest {
-        fakeHomeServerConnectionConfigFactory.givenConfigFor(A_HOMESERVER_URL, fingerprint = null, A_HOMESERVER_CONFIG)
+        fakeHomeServerConnectionConfigFactory.givenConfigFor(A_HOMESERVER_URL, fingerprints = null, A_HOMESERVER_CONFIG)
         fakeStartAuthenticationFlowUseCase.givenErrors(A_HOMESERVER_CONFIG, AN_UNRECOGNISED_CERTIFICATE_ERROR)
         val editAction = OnboardingAction.HomeServerChange.EditHomeServer(A_HOMESERVER_URL)
         val test = viewModel.test()
@@ -613,7 +609,7 @@ class OnboardingViewModelTest {
 
     @Test
     fun `when selecting homeserver errors with certificate error, then emits error`() = runTest {
-        fakeHomeServerConnectionConfigFactory.givenConfigFor(A_HOMESERVER_URL, fingerprint = null, A_HOMESERVER_CONFIG)
+        fakeHomeServerConnectionConfigFactory.givenConfigFor(A_HOMESERVER_URL, fingerprints = null, A_HOMESERVER_CONFIG)
         fakeStartAuthenticationFlowUseCase.givenErrors(A_HOMESERVER_CONFIG, AN_UNRECOGNISED_CERTIFICATE_ERROR)
         val selectAction = OnboardingAction.HomeServerChange.SelectHomeServer(A_HOMESERVER_URL)
         val test = viewModel.test()
@@ -684,7 +680,7 @@ class OnboardingViewModelTest {
                 .assertStatesChanges(
                         initialState,
                         { copy(isLoading = true) },
-                        { copy(isLoading = false, personalizationState = A_HOMESERVER_CAPABILITIES.toPersonalisationState(A_USERNAME)) }
+                        { copy(isLoading = false, personalizationState = A_HOMESERVER_CAPABILITIES.toPersonalisationState("@fake:server.fake", A_USERNAME)) }
                 )
                 .assertEvents(OnboardingViewEvents.OnAccountCreated)
                 .finish()
@@ -815,7 +811,7 @@ class OnboardingViewModelTest {
                 A_HOMESERVER_URL,
                 SELECTED_HOMESERVER_STATE,
                 config = A_HOMESERVER_CONFIG.copy(allowedFingerprints = listOf(A_FINGERPRINT)),
-                fingerprint = A_FINGERPRINT,
+                fingerprints = listOf(A_FINGERPRINT),
         )
 
         viewModel.handle(OnboardingAction.UserAcceptCertificate(A_FINGERPRINT, OnboardingAction.HomeServerChange.SelectHomeServer(A_HOMESERVER_URL)))
@@ -839,7 +835,7 @@ class OnboardingViewModelTest {
                 A_HOMESERVER_URL,
                 SELECTED_HOMESERVER_STATE,
                 config = A_HOMESERVER_CONFIG.copy(allowedFingerprints = listOf(A_FINGERPRINT)),
-                fingerprint = A_FINGERPRINT,
+                fingerprints = listOf(A_FINGERPRINT),
         )
         val test = viewModel.test()
 
@@ -859,7 +855,7 @@ class OnboardingViewModelTest {
 
     @Test
     fun `given DirectLogin retry action, when accepting user certificate, then logs in directly`() = runTest {
-        fakeHomeServerConnectionConfigFactory.givenConfigFor("https://dummy.org", A_FINGERPRINT, A_HOMESERVER_CONFIG)
+        fakeHomeServerConnectionConfigFactory.givenConfigFor("https://dummy.org", listOf(A_FINGERPRINT), A_HOMESERVER_CONFIG)
         fakeDirectLoginUseCase.givenSuccessResult(A_DIRECT_LOGIN, config = A_HOMESERVER_CONFIG, result = fakeSession)
         givenInitialisesSession(fakeSession)
         val test = viewModel.test()
@@ -1062,9 +1058,9 @@ class OnboardingViewModelTest {
     fun `given returns Sso url, when fetching Sso url, then updates authentication state and returns supplied Sso url`() = runTest {
         val test = viewModel.test()
         val provider = SsoIdentityProvider(id = "provider_id", null, null, null)
-        fakeAuthenticationService.givenSsoUrl(A_REDIRECT_URI, A_DEVICE_ID, provider.id, result = A_SSO_URL)
+        fakeAuthenticationService.givenSsoUrl(A_REDIRECT_URI, A_DEVICE_ID, provider.id, SSOAction.LOGIN, result = A_SSO_URL)
 
-        val result = viewModel.fetchSsoUrl(A_REDIRECT_URI, A_DEVICE_ID, provider)
+        val result = viewModel.fetchSsoUrl(A_REDIRECT_URI, A_DEVICE_ID, provider, SSOAction.LOGIN)
 
         result shouldBeEqualTo A_SSO_URL
         test
@@ -1093,6 +1089,8 @@ class OnboardingViewModelTest {
                 FakeVectorOverrides(),
                 fakeRegistrationActionHandler.instance,
                 TestBuildVersionSdkIntProvider().also { it.value = Build.VERSION_CODES.O },
+                fakeConfigureAndStartSessionUseCase,
+                NoOpMdmService()
         ).also {
             viewModel = it
             initialState = state
@@ -1132,7 +1130,7 @@ class OnboardingViewModelTest {
     private fun givenInitialisesSession(session: Session) {
         fakeActiveSessionHolder.expectSetsActiveSession(session)
         fakeAuthenticationService.expectReset()
-        fakeSession.expectStartsSyncing()
+        fakeSession.expectStartsSyncing(fakeConfigureAndStartSessionUseCase)
     }
 
     private fun givenRegistrationResultFor(action: RegisterAction, result: RegistrationActionHandler.Result) {
@@ -1147,16 +1145,16 @@ class OnboardingViewModelTest {
             homeserverUrl: String,
             resultingState: SelectedHomeserverState,
             config: HomeServerConnectionConfig = A_HOMESERVER_CONFIG,
-            fingerprint: Fingerprint? = null,
+            fingerprints: List<Fingerprint>? = null,
     ) {
-        fakeHomeServerConnectionConfigFactory.givenConfigFor(homeserverUrl, fingerprint, config)
+        fakeHomeServerConnectionConfigFactory.givenConfigFor(homeserverUrl, fingerprints, config)
         fakeStartAuthenticationFlowUseCase.givenResult(config, StartAuthenticationResult(isHomeserverOutdated = false, resultingState))
         givenRegistrationResultFor(RegisterAction.StartRegistration, RegistrationActionHandler.Result.StartRegistration)
         fakeHomeServerHistoryService.expectUrlToBeAdded(config.homeServerUri.toString())
     }
 
     private fun givenUpdatingHomeserverErrors(homeserverUrl: String, resultingState: SelectedHomeserverState, error: Throwable) {
-        fakeHomeServerConnectionConfigFactory.givenConfigFor(homeserverUrl, fingerprint = null, A_HOMESERVER_CONFIG)
+        fakeHomeServerConnectionConfigFactory.givenConfigFor(homeserverUrl, fingerprints = null, A_HOMESERVER_CONFIG)
         fakeStartAuthenticationFlowUseCase.givenResult(A_HOMESERVER_CONFIG, StartAuthenticationResult(isHomeserverOutdated = false, resultingState))
         givenRegistrationResultFor(RegisterAction.StartRegistration, RegistrationActionHandler.Result.Error(error))
         fakeHomeServerHistoryService.expectUrlToBeAdded(A_HOMESERVER_CONFIG.homeServerUri.toString())
@@ -1181,18 +1179,19 @@ class OnboardingViewModelTest {
 
     private fun givenHomeserverSelectionFailsWithNetworkError() {
         fakeContext.givenHasConnection()
-        fakeHomeServerConnectionConfigFactory.givenConfigFor(A_HOMESERVER_URL, fingerprint = null, A_HOMESERVER_CONFIG)
+        fakeHomeServerConnectionConfigFactory.givenConfigFor(A_HOMESERVER_URL, fingerprints = null, A_HOMESERVER_CONFIG)
         fakeStartAuthenticationFlowUseCase.givenHomeserverUnavailable(A_HOMESERVER_CONFIG)
     }
 
     private fun givenHomeserverSelectionFailsWith(cause: Throwable) {
         fakeContext.givenHasConnection()
-        fakeHomeServerConnectionConfigFactory.givenConfigFor(A_HOMESERVER_URL, fingerprint = null, A_HOMESERVER_CONFIG)
+        fakeHomeServerConnectionConfigFactory.givenConfigFor(A_HOMESERVER_URL, fingerprints = null, A_HOMESERVER_CONFIG)
         fakeStartAuthenticationFlowUseCase.givenErrors(A_HOMESERVER_CONFIG, cause)
     }
 }
 
-private fun HomeServerCapabilities.toPersonalisationState(displayName: String? = null) = PersonalizationState(
+private fun HomeServerCapabilities.toPersonalisationState(userId: String, displayName: String? = null) = PersonalizationState(
+        userId = userId,
         supportsChangingDisplayName = canChangeDisplayName,
         supportsChangingProfilePicture = canChangeAvatar,
         displayName = displayName,

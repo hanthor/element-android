@@ -19,7 +19,8 @@ package org.matrix.android.sdk.internal.session.room.summary
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.Transformations
+import androidx.lifecycle.map
+import androidx.lifecycle.switchMap
 import androidx.paging.LivePagedListBuilder
 import androidx.paging.PagedList
 import com.zhuinden.monarchy.Monarchy
@@ -34,6 +35,7 @@ import org.matrix.android.sdk.api.session.room.ResultBoundaries
 import org.matrix.android.sdk.api.session.room.RoomSortOrder
 import org.matrix.android.sdk.api.session.room.RoomSummaryQueryParams
 import org.matrix.android.sdk.api.session.room.UpdatableLivePageResult
+import org.matrix.android.sdk.api.session.room.model.LocalRoomSummary
 import org.matrix.android.sdk.api.session.room.model.Membership
 import org.matrix.android.sdk.api.session.room.model.RoomSummary
 import org.matrix.android.sdk.api.session.room.model.RoomType
@@ -43,7 +45,9 @@ import org.matrix.android.sdk.api.session.room.summary.RoomAggregateNotification
 import org.matrix.android.sdk.api.session.space.SpaceSummaryQueryParams
 import org.matrix.android.sdk.api.util.Optional
 import org.matrix.android.sdk.api.util.toOptional
+import org.matrix.android.sdk.internal.database.mapper.LocalRoomSummaryMapper
 import org.matrix.android.sdk.internal.database.mapper.RoomSummaryMapper
+import org.matrix.android.sdk.internal.database.model.LocalRoomSummaryEntity
 import org.matrix.android.sdk.internal.database.model.RoomSummaryEntity
 import org.matrix.android.sdk.internal.database.model.RoomSummaryEntityFields
 import org.matrix.android.sdk.internal.database.query.findByAlias
@@ -57,6 +61,7 @@ import javax.inject.Inject
 internal class RoomSummaryDataSource @Inject constructor(
         @SessionDatabase private val monarchy: Monarchy,
         private val roomSummaryMapper: RoomSummaryMapper,
+        private val localRoomSummaryMapper: LocalRoomSummaryMapper,
         private val queryStringValueProcessor: QueryStringValueProcessor,
 ) {
 
@@ -80,7 +85,7 @@ internal class RoomSummaryDataSource @Inject constructor(
                 { realm -> RoomSummaryEntity.where(realm, roomId).isNotEmpty(RoomSummaryEntityFields.DISPLAY_NAME) },
                 { roomSummaryMapper.map(it) }
         )
-        return Transformations.map(liveData) { results ->
+        return liveData.map { results ->
             results.firstOrNull().toOptional()
         }
     }
@@ -95,6 +100,25 @@ internal class RoomSummaryDataSource @Inject constructor(
         )
     }
 
+    fun getLocalRoomSummary(roomId: String): LocalRoomSummary? {
+        return monarchy
+                .fetchCopyMap({
+                    LocalRoomSummaryEntity.where(it, roomId).findFirst()
+                }, { entity, _ ->
+                    localRoomSummaryMapper.map(entity)
+                })
+    }
+
+    fun getLocalRoomSummaryLive(roomId: String): LiveData<Optional<LocalRoomSummary>> {
+        val liveData = monarchy.findAllMappedWithChanges(
+                { realm -> LocalRoomSummaryEntity.where(realm, roomId) },
+                { localRoomSummaryMapper.map(it) }
+        )
+        return liveData.map { results ->
+            results.firstOrNull().toOptional()
+        }
+    }
+
     fun getRoomSummariesLive(
             queryParams: RoomSummaryQueryParams,
             sortOrder: RoomSortOrder = RoomSortOrder.NONE
@@ -104,6 +128,18 @@ internal class RoomSummaryDataSource @Inject constructor(
                     roomSummariesQuery(it, queryParams).process(sortOrder)
                 },
                 { roomSummaryMapper.map(it) }
+        )
+    }
+
+    fun getRoomSummariesChangesLive(
+            queryParams: RoomSummaryQueryParams,
+            sortOrder: RoomSortOrder = RoomSortOrder.NONE
+    ): LiveData<List<Unit>> {
+        return monarchy.findAllMappedWithChanges(
+                {
+                    roomSummariesQuery(it, queryParams).process(sortOrder)
+                },
+                { emptyList<Unit>() }
         )
     }
 
@@ -130,7 +166,7 @@ internal class RoomSummaryDataSource @Inject constructor(
                     roomSummaryMapper.map(it)
                 }
         )
-        return Transformations.map(liveData) { results ->
+        return liveData.map { results ->
             results.firstOrNull().toOptional()
         }
     }
@@ -230,6 +266,7 @@ internal class RoomSummaryDataSource @Inject constructor(
         )
 
         return object : UpdatableLivePageResult {
+
             override val livePagedList: LiveData<PagedList<RoomSummary>> = mapped
 
             override val liveBoundaries: LiveData<ResultBoundaries>
@@ -239,7 +276,14 @@ internal class RoomSummaryDataSource @Inject constructor(
                 set(value) {
                     field = value
                     realmDataSourceFactory.updateQuery {
-                        roomSummariesQuery(it, value).process(sortOrder)
+                        roomSummariesQuery(it, value).process(this.sortOrder)
+                    }
+                }
+            override var sortOrder: RoomSortOrder = sortOrder
+                set(value) {
+                    field = value
+                    realmDataSourceFactory.updateQuery {
+                        roomSummariesQuery(it, this.queryParams).process(value)
                     }
                 }
         }
@@ -249,7 +293,7 @@ internal class RoomSummaryDataSource @Inject constructor(
         val liveRooms = monarchy.findAllManagedWithChanges {
             roomSummariesQuery(it, queryParams)
         }
-        return Transformations.map(liveRooms) {
+        return liveRooms.map {
             it.realmResults.where().count().toInt()
         }
     }
@@ -272,6 +316,7 @@ internal class RoomSummaryDataSource @Inject constructor(
         val query = with(queryStringValueProcessor) {
             RoomSummaryEntity.where(realm)
                     .process(RoomSummaryEntityFields.ROOM_ID, QueryStringValue.IsNotEmpty)
+                    .process(RoomSummaryEntityFields.ROOM_ID, queryParams.roomId)
                     .process(queryParams.displayName.toDisplayNameField(), queryParams.displayName)
                     .process(RoomSummaryEntityFields.CANONICAL_ALIAS, queryParams.canonicalAlias)
                     .process(RoomSummaryEntityFields.MEMBERSHIP_STR, queryParams.memberships)
@@ -343,7 +388,7 @@ internal class RoomSummaryDataSource @Inject constructor(
         // and switch map to listen those?
         val mediatorLiveData = HierarchyLiveDataHelper(spaceId, memberShips, this).liveData()
 
-        return Transformations.switchMap(mediatorLiveData) { allIds ->
+        return mediatorLiveData.switchMap { allIds ->
             monarchy.findAllMappedWithChanges(
                     {
                         it.where<RoomSummaryEntity>()
@@ -368,15 +413,16 @@ internal class RoomSummaryDataSource @Inject constructor(
     }
 
     fun getFlattenOrphanRoomsLive(): LiveData<List<RoomSummary>> {
-        return Transformations.map(
-                getRoomSummariesLive(roomSummaryQueryParams {
+        return getRoomSummariesLive(
+                roomSummaryQueryParams {
                     memberships = Membership.activeMemberships()
                     excludeType = listOf(RoomType.SPACE)
                     roomCategoryFilter = RoomCategoryFilter.ONLY_ROOMS
-                })
-        ) {
-            it.filter { isOrphan(it) }
-        }
+                }
+        )
+                .map {
+                    it.filter { isOrphan(it) }
+                }
     }
 
     private fun isOrphan(roomSummary: RoomSummary): Boolean {

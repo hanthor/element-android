@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.detail.timeline.factory
@@ -21,8 +12,13 @@ import im.vector.app.core.epoxy.TimelineEmptyItem_
 import im.vector.app.core.epoxy.VectorEpoxyModel
 import im.vector.app.features.analytics.DecryptionFailureTracker
 import im.vector.app.features.home.room.detail.timeline.helper.TimelineEventVisibilityHelper
+import im.vector.app.features.voicebroadcast.VoiceBroadcastConstants
+import im.vector.app.features.voicebroadcast.model.isVoiceBroadcast
+import org.matrix.android.sdk.api.session.Session
 import org.matrix.android.sdk.api.session.events.model.EventType
+import org.matrix.android.sdk.api.session.events.model.RelationType
 import org.matrix.android.sdk.api.session.room.timeline.TimelineEvent
+import org.matrix.android.sdk.api.session.room.timeline.getRelationContent
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -36,8 +32,10 @@ class TimelineItemFactory @Inject constructor(
         private val widgetItemFactory: WidgetItemFactory,
         private val verificationConclusionItemFactory: VerificationItemFactory,
         private val callItemFactory: CallItemFactory,
+        private val elementCallItemFactory: ElementCallItemFactory,
         private val decryptionFailureTracker: DecryptionFailureTracker,
         private val timelineEventVisibilityHelper: TimelineEventVisibilityHelper,
+        private val session: Session,
 ) {
 
     /**
@@ -87,7 +85,8 @@ class TimelineItemFactory @Inject constructor(
                     EventType.STATE_ROOM_ENCRYPTION -> encryptionItemFactory.create(params)
                     // State room create
                     EventType.STATE_ROOM_CREATE -> roomCreateItemFactory.create(params)
-                    in EventType.STATE_ROOM_BEACON_INFO -> messageItemFactory.create(params)
+                    in EventType.STATE_ROOM_BEACON_INFO.values -> messageItemFactory.create(params)
+                    VoiceBroadcastConstants.STATE_ROOM_VOICE_BROADCAST_INFO -> messageItemFactory.create(params)
                     // Unhandled state event types
                     else -> {
                         // Should only happen when shouldShowHiddenEvents() settings is ON
@@ -99,7 +98,8 @@ class TimelineItemFactory @Inject constructor(
                 when (event.root.getClearType()) {
                     // Message itemsX
                     EventType.STICKER,
-                    in EventType.POLL_START,
+                    in EventType.POLL_START.values,
+                    in EventType.POLL_END.values,
                     EventType.MESSAGE -> messageItemFactory.create(params)
                     EventType.REDACTION,
                     EventType.KEY_VERIFICATION_ACCEPT,
@@ -112,15 +112,16 @@ class TimelineItemFactory @Inject constructor(
                     EventType.CALL_SELECT_ANSWER,
                     EventType.CALL_NEGOTIATE,
                     EventType.REACTION,
-                    in EventType.POLL_RESPONSE,
-                    in EventType.POLL_END -> noticeItemFactory.create(params)
-                    in EventType.BEACON_LOCATION_DATA -> {
+                    in EventType.POLL_RESPONSE.values -> noticeItemFactory.create(params)
+                    in EventType.BEACON_LOCATION_DATA.values -> {
                         if (event.root.isRedacted()) {
                             messageItemFactory.create(params)
                         } else {
                             noticeItemFactory.create(params)
                         }
                     }
+                    // Element Call
+                    in EventType.ELEMENT_CALL_NOTIFY.values -> elementCallItemFactory.create(params)
                     // Calls
                     EventType.CALL_INVITE,
                     EventType.CALL_HANGUP,
@@ -128,11 +129,16 @@ class TimelineItemFactory @Inject constructor(
                     EventType.CALL_ANSWER -> callItemFactory.create(params)
                     // Crypto
                     EventType.ENCRYPTED -> {
-                        if (event.root.isRedacted()) {
+                        val relationContent = event.getRelationContent()
+                        when {
                             // Redacted event, let the MessageItemFactory handle it
-                            messageItemFactory.create(params)
-                        } else {
-                            encryptedItemFactory.create(params)
+                            event.root.isRedacted() -> messageItemFactory.create(params)
+                            relationContent?.type == RelationType.REFERENCE -> {
+                                // Hide the decryption error for VoiceBroadcast chunks
+                                val relatedEvent = relationContent.eventId?.let { session.eventService().getEventFromCache(event.roomId, it) }
+                                if (relatedEvent?.isVoiceBroadcast() != true) encryptedItemFactory.create(params) else null
+                            }
+                            else -> encryptedItemFactory.create(params)
                         }
                     }
                     EventType.KEY_VERIFICATION_CANCEL,
@@ -146,8 +152,8 @@ class TimelineItemFactory @Inject constructor(
                         defaultItemFactory.create(params)
                     }
                 }.also {
-                    if (it != null && event.isEncrypted()) {
-                        decryptionFailureTracker.e2eEventDisplayedInTimeline(event)
+                    if (it != null && event.isEncrypted() && event.root.mCryptoError != null) {
+                        decryptionFailureTracker.utdDisplayedInTimeline(event)
                     }
                 }
             }

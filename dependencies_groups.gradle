@@ -1,21 +1,22 @@
 ext.groups = [
-        jitpack     : [
+        jitpack       : [
                 regex: [
                 ],
                 group: [
                         'com.github.Armen101',
                         'com.github.chrisbanes',
+                        'com.github.element-hq',
                         'com.github.hyuwah',
                         'com.github.jetradarmobile',
                         'com.github.MatrixFrog',
+                        'com.github.matrix-org',
                         'com.github.tapadoo',
                         'com.github.UnifiedPush',
-                        'com.github.vector-im',
                         'com.github.yalantis',
                         'com.github.Zhuinden',
                 ]
         ],
-        jitsi       : [
+        jitsi         : [
                 regex: [
                 ],
                 group: [
@@ -24,7 +25,7 @@ ext.groups = [
                         'org.webkit',
                 ]
         ],
-        google      : [
+        google        : [
                 regex: [
                         'androidx\\..*',
                         'com\\.android\\.tools\\..*',
@@ -38,10 +39,24 @@ ext.groups = [
                         'com.google.testing.platform',
                 ]
         ],
+        snapshot: [
+                regex: [
+                ],
+                group: [
+                ]
+        ],
+        mavenSnapshots: [
+                regex: [
+                ],
+                group: [
+                        'org.matrix.rustcomponents'
+                ]
+        ],
         mavenCentral: [
                 regex: [
                 ],
                 group: [
+                        'app.cash.paparazzi',
                         'ch.qos.logback',
                         'com.adevinta.android',
                         'com.airbnb.android',
@@ -57,6 +72,7 @@ ext.groups = [
                         'com.facebook.flipper',
                         'com.facebook.fresco',
                         'com.facebook.infer.annotation',
+                        'com.facebook.react',
                         'com.facebook.soloader',
                         'com.facebook.stetho',
                         'com.facebook.yoga',
@@ -69,8 +85,6 @@ ext.groups = [
                         'com.gabrielittner.threetenbp',
                         'com.getkeepsafe.relinker',
                         'com.github.bumptech.glide',
-                        'com.github.filippudak',
-                        'com.github.filippudak.progresspieview',
                         'com.github.javaparser',
                         'com.github.piasy',
                         'com.github.shyiko.klob',
@@ -78,10 +92,12 @@ ext.groups = [
                         'com.google',
                         'com.google.android',
                         'com.google.api.grpc',
+                        'com.google.auto',
                         'com.google.auto.service',
                         'com.google.auto.value',
                         'com.google.code.findbugs',
                         'com.google.code.gson',
+                        'com.google.crypto.tink',
                         'com.google.dagger',
                         'com.google.devtools.ksp',
                         'com.google.errorprone',
@@ -95,17 +111,19 @@ ext.groups = [
                         'com.googlecode.json-simple',
                         'com.googlecode.libphonenumber',
                         'com.ibm.icu',
+                        'com.intellij',
                         'com.jakewharton.android.repackaged',
                         'com.jakewharton.timber',
                         'com.kgurgul.flipper',
                         'com.linkedin.dexmaker',
                         'com.mapbox.mapboxsdk',
                         'com.nulab-inc',
+                        'com.otaliastudios',
                         'com.otaliastudios.opengl',
                         'com.parse.bolts',
                         'com.pinterest',
                         'com.pinterest.ktlint',
-                        'com.posthog.android',
+                        'com.posthog',
                         'com.squareup',
                         'com.squareup.curtains',
                         'com.squareup.duktape',
@@ -125,8 +143,8 @@ ext.groups = [
                         'commons-codec',
                         'commons-io',
                         'commons-logging',
+                        'dev.drewhamilton.poko',
                         'info.picocli',
-                        'io.arrow-kt',
                         'io.element.android',
                         'io.github.davidburstrom.contester',
                         'io.github.detekt.sarif4k',
@@ -140,16 +158,21 @@ ext.groups = [
                         'io.netty',
                         'io.noties.markwon',
                         'io.opencensus',
+                        'io.perfmark',
                         'io.reactivex.rxjava2',
                         'io.realm',
+                        'io.sentry',
                         'it.unimi.dsi',
                         'jakarta.activation',
                         'jakarta.xml.bind',
+                        'javax.activation',
                         'javax.annotation',
                         'javax.inject',
+                        'javax.xml.bind',
                         'jline',
                         'jp.wasabeef',
                         'junit',
+                        'kxml2',
                         'me.saket',
                         'net.bytebuddy',
                         'net.java',
@@ -164,13 +187,14 @@ ext.groups = [
                         'org.apache.ant',
                         'org.apache.commons',
                         'org.apache.httpcomponents',
-                        'org.apache.sanselan',
                         'org.bouncycastle',
+                        'org.ccil.cowan.tagsoup',
                         'org.checkerframework',
                         'org.codehaus',
                         'org.codehaus.groovy',
                         'org.codehaus.mojo',
                         'org.codehaus.woodstox',
+                        'org.conscrypt',
                         'org.eclipse.ee4j',
                         'org.ec4j.core',
                         'org.freemarker',
@@ -178,11 +202,15 @@ ext.groups = [
                         'org.hamcrest',
                         'org.jacoco',
                         'org.java-websocket',
+                        'org.jcodec',
+                        'org.jcommander',
                         'org.jetbrains',
                         'org.jetbrains.dokka',
                         'org.jetbrains.intellij.deps',
                         'org.jetbrains.kotlin',
                         'org.jetbrains.kotlinx',
+                        'org.jetbrains.trove4j',
+                        'org.jitsi',
                         'org.json',
                         'org.jsoup',
                         'org.junit',
@@ -191,6 +219,7 @@ ext.groups = [
                         'org.jvnet.staxex',
                         'org.maplibre.gl',
                         'org.matrix.android',
+                        'org.matrix.rustcomponents',
                         'org.mockito',
                         'org.mongodb',
                         'org.objenesis',
@@ -201,6 +230,7 @@ ext.groups = [
                         'org.reactivestreams',
                         'org.robolectric',
                         'org.slf4j',
+                        'org.snakeyaml',
                         'org.sonatype.oss',
                         'org.testng',
                         'org.threeten',
@@ -211,18 +241,4 @@ ext.groups = [
                         'xml-apis',
                 ]
         ],
-        jcenter     : [
-                regex: [
-                ],
-                group: [
-                        'com.amulyakhare',
-                        'com.otaliastudios',
-                        'com.yqritc',
-                        // https://github.com/cmelchior/realmfieldnameshelper/issues/42
-                        'dk.ilios',
-                        'im.dlg',
-                        'me.dm7.barcodescanner',
-                        'me.gujun.android',
-                ]
-        ]
 ]

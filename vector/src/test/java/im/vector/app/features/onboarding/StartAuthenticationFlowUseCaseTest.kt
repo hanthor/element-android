@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2022 New Vector Ltd
+ * Copyright 2022-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.onboarding
@@ -70,7 +61,7 @@ class StartAuthenticationFlowUseCaseTest {
 
         result shouldBeEqualTo expectedResult(
                 supportedLoginTypes = SSO_AND_PASSWORD_LOGIN_TYPES,
-                preferredLoginMode = LoginMode.SsoAndPassword(SsoState.Fallback),
+                preferredLoginMode = LoginMode.SsoAndPassword(SsoState.Fallback, false),
         )
         verifyClearsAndThenStartsLogin(A_HOMESERVER_CONFIG)
     }
@@ -84,7 +75,7 @@ class StartAuthenticationFlowUseCaseTest {
 
         result shouldBeEqualTo expectedResult(
                 supportedLoginTypes = SSO_AND_PASSWORD_LOGIN_TYPES,
-                preferredLoginMode = LoginMode.SsoAndPassword(SsoState.IdentityProviders(SSO_IDENTITY_PROVIDERS)),
+                preferredLoginMode = LoginMode.SsoAndPassword(SsoState.IdentityProviders(SSO_IDENTITY_PROVIDERS), false),
         )
         verifyClearsAndThenStartsLogin(A_HOMESERVER_CONFIG)
     }
@@ -98,7 +89,7 @@ class StartAuthenticationFlowUseCaseTest {
 
         result shouldBeEqualTo expectedResult(
                 supportedLoginTypes = SSO_LOGIN_TYPE,
-                preferredLoginMode = LoginMode.Sso(SsoState.Fallback),
+                preferredLoginMode = LoginMode.Sso(SsoState.Fallback, false),
         )
         verifyClearsAndThenStartsLogin(A_HOMESERVER_CONFIG)
     }
@@ -112,7 +103,7 @@ class StartAuthenticationFlowUseCaseTest {
 
         result shouldBeEqualTo expectedResult(
                 supportedLoginTypes = SSO_LOGIN_TYPE,
-                preferredLoginMode = LoginMode.Sso(SsoState.IdentityProviders(SSO_IDENTITY_PROVIDERS)),
+                preferredLoginMode = LoginMode.Sso(SsoState.IdentityProviders(SSO_IDENTITY_PROVIDERS), false),
         )
         verifyClearsAndThenStartsLogin(A_HOMESERVER_CONFIG)
     }
@@ -131,30 +122,50 @@ class StartAuthenticationFlowUseCaseTest {
         verifyClearsAndThenStartsLogin(A_HOMESERVER_CONFIG)
     }
 
+    @Test
+    fun `given identity providers and login supports SSO with OIDC compatibility then prefers Sso for compatibility`() = runTest {
+        val loginResult = aLoginResult(supportedLoginTypes = SSO_LOGIN_TYPE, ssoProviders = SSO_IDENTITY_PROVIDERS, hasOidcCompatibilityFlow = true)
+        fakeAuthenticationService.givenLoginFlow(A_HOMESERVER_CONFIG, loginResult)
+
+        val result = useCase.execute(A_HOMESERVER_CONFIG)
+
+        result shouldBeEqualTo expectedResult(
+                supportedLoginTypes = SSO_LOGIN_TYPE,
+                preferredLoginMode = LoginMode.Sso(SsoState.IdentityProviders(SSO_IDENTITY_PROVIDERS), hasOidcCompatibilityFlow = true),
+                hasOidcCompatibilityFlow = true
+        )
+        verifyClearsAndThenStartsLogin(A_HOMESERVER_CONFIG)
+    }
+
     private fun aLoginResult(
             supportedLoginTypes: List<String>,
-            ssoProviders: List<SsoIdentityProvider> = FALLBACK_SSO_IDENTITY_PROVIDERS
+            ssoProviders: List<SsoIdentityProvider> = FALLBACK_SSO_IDENTITY_PROVIDERS,
+            hasOidcCompatibilityFlow: Boolean = false
     ) = LoginFlowResult(
             supportedLoginTypes = supportedLoginTypes,
             ssoIdentityProviders = ssoProviders,
             isLoginAndRegistrationSupported = true,
             homeServerUrl = A_DECLARED_HOMESERVER_URL,
             isOutdatedHomeserver = false,
-            isLogoutDevicesSupported = false
+            hasOidcCompatibilityFlow = hasOidcCompatibilityFlow,
+            isLogoutDevicesSupported = false,
+            isLoginWithQrSupported = false,
     )
 
     private fun expectedResult(
             isHomeserverOutdated: Boolean = false,
             preferredLoginMode: LoginMode = LoginMode.Unsupported,
             supportedLoginTypes: List<String> = emptyList(),
-            homeserverSourceUrl: String = A_HOMESERVER_CONFIG.homeServerUri.toString()
+            homeserverSourceUrl: String = A_HOMESERVER_CONFIG.homeServerUri.toString(),
+            hasOidcCompatibilityFlow: Boolean = false
     ) = StartAuthenticationResult(
             isHomeserverOutdated,
             SelectedHomeserverState(
                     userFacingUrl = homeserverSourceUrl,
                     upstreamUrl = A_DECLARED_HOMESERVER_URL,
                     preferredLoginMode = preferredLoginMode,
-                    supportedLoginTypes = supportedLoginTypes
+                    supportedLoginTypes = supportedLoginTypes,
+                    hasOidcCompatibilityFlow = hasOidcCompatibilityFlow
             )
     )
 

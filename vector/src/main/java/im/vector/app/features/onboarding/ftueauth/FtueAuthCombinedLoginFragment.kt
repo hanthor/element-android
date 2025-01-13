@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.onboarding.ftueauth
@@ -23,9 +14,9 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.autofill.HintConstants
 import androidx.core.view.isVisible
+import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
-import im.vector.app.R
 import im.vector.app.core.extensions.clearErrorOnChange
 import im.vector.app.core.extensions.content
 import im.vector.app.core.extensions.editText
@@ -36,16 +27,18 @@ import im.vector.app.core.extensions.setOnFocusLostListener
 import im.vector.app.core.extensions.setOnImeDoneListener
 import im.vector.app.core.extensions.toReducedUrl
 import im.vector.app.databinding.FragmentFtueCombinedLoginBinding
+import im.vector.app.features.VectorFeatures
 import im.vector.app.features.login.LoginMode
 import im.vector.app.features.login.SSORedirectRouterActivity
 import im.vector.app.features.login.SocialLoginButtonsView
-import im.vector.app.features.login.SsoState
 import im.vector.app.features.login.render
 import im.vector.app.features.onboarding.OnboardingAction
 import im.vector.app.features.onboarding.OnboardingViewEvents
 import im.vector.app.features.onboarding.OnboardingViewState
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
+import org.matrix.android.sdk.api.auth.SSOAction
 import reactivecircus.flowbinding.android.widget.textChanges
 import javax.inject.Inject
 
@@ -55,6 +48,7 @@ class FtueAuthCombinedLoginFragment :
 
     @Inject lateinit var loginFieldsValidation: LoginFieldsValidation
     @Inject lateinit var loginErrorParser: LoginErrorParser
+    @Inject lateinit var vectorFeatures: VectorFeatures
 
     override fun getBinding(inflater: LayoutInflater, container: ViewGroup?): FragmentFtueCombinedLoginBinding {
         return FragmentFtueCombinedLoginBinding.inflate(inflater, container, false)
@@ -79,7 +73,7 @@ class FtueAuthCombinedLoginFragment :
 
         combine(views.loginInput.editText().textChanges(), views.loginPasswordInput.editText().textChanges()) { account, password ->
             views.loginSubmit.isEnabled = account.isNotEmpty() && password.isNotEmpty()
-        }.launchIn(viewLifecycleOwner.lifecycleScope)
+        }.flowWithLifecycle(lifecycle).launchIn(viewLifecycleOwner.lifecycleScope)
     }
 
     private fun submit() {
@@ -88,7 +82,7 @@ class FtueAuthCombinedLoginFragment :
                 .onUsernameOrIdError { views.loginInput.error = it }
                 .onPasswordError { views.loginPasswordInput.error = it }
                 .onValid { usernameOrId, password ->
-                    val initialDeviceName = getString(R.string.login_default_session_public_name)
+                    val initialDeviceName = getString(CommonStrings.login_default_session_public_name)
                     viewModel.handle(OnboardingAction.AuthenticateAction.Login(usernameOrId, password, initialDeviceName))
                 }
     }
@@ -128,11 +122,11 @@ class FtueAuthCombinedLoginFragment :
         when (state.selectedHomeserver.preferredLoginMode) {
             is LoginMode.SsoAndPassword -> {
                 showUsernamePassword()
-                renderSsoProviders(state.deviceId, state.selectedHomeserver.preferredLoginMode.ssoState)
+                renderSsoProviders(state.deviceId, state.selectedHomeserver.preferredLoginMode)
             }
             is LoginMode.Sso -> {
                 hideUsernamePassword()
-                renderSsoProviders(state.deviceId, state.selectedHomeserver.preferredLoginMode.ssoState)
+                renderSsoProviders(state.deviceId, state.selectedHomeserver.preferredLoginMode)
             }
             else -> {
                 showUsernamePassword()
@@ -141,14 +135,15 @@ class FtueAuthCombinedLoginFragment :
         }
     }
 
-    private fun renderSsoProviders(deviceId: String?, ssoState: SsoState) {
+    private fun renderSsoProviders(deviceId: String?, loginMode: LoginMode) {
         views.ssoGroup.isVisible = true
         views.ssoButtonsHeader.isVisible = isUsernameAndPasswordVisible()
-        views.ssoButtons.render(ssoState, SocialLoginButtonsView.Mode.MODE_CONTINUE) { id ->
+        views.ssoButtons.render(loginMode, SocialLoginButtonsView.Mode.MODE_CONTINUE) { id ->
             viewModel.fetchSsoUrl(
                     redirectUrl = SSORedirectRouterActivity.VECTOR_REDIRECT_URL,
                     deviceId = deviceId,
-                    provider = id
+                    provider = id,
+                    action = SSOAction.LOGIN
             )?.let { openInCustomTab(it) }
         }
     }

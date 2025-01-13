@@ -32,9 +32,15 @@ data class CryptoTestData(
     val thirdSession: Session?
         get() = sessions.getOrNull(2)
 
-    fun cleanUp(testHelper: CommonTestHelper) {
+    suspend fun cleanUp(testHelper: CommonTestHelper) {
         sessions.forEach {
             testHelper.signOutAndClose(it)
+        }
+    }
+
+    suspend fun initializeCrossSigning(testHelper: CryptoTestHelper) {
+        sessions.forEach {
+            testHelper.initializeCrossSigning(it)
         }
     }
 }

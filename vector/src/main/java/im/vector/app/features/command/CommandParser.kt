@@ -1,68 +1,54 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.command
 
-import im.vector.app.core.extensions.isEmail
 import im.vector.app.core.extensions.isMsisdn
+import im.vector.app.core.extensions.orEmpty
 import im.vector.app.features.home.room.detail.ChatEffect
+import im.vector.app.features.settings.VectorPreferences
 import org.matrix.android.sdk.api.MatrixPatterns
 import org.matrix.android.sdk.api.MatrixUrls.isMxcUrl
+import org.matrix.android.sdk.api.extensions.isEmail
 import org.matrix.android.sdk.api.session.identity.ThreePid
 import timber.log.Timber
 import javax.inject.Inject
 
-class CommandParser @Inject constructor() {
+class CommandParser @Inject constructor(
+        private val vectorPreferences: VectorPreferences
+) {
 
     /**
      * Convert the text message into a Slash command.
      *
-     * @param textMessage the text message
+     * @param textMessage the text message in plain text
+     * @param formattedMessage the text messaged in HTML format
      * @param isInThreadTimeline true if the user is currently typing in a thread
      * @return a parsed slash command (ok or error)
      */
-    fun parseSlashCommand(textMessage: CharSequence, isInThreadTimeline: Boolean): ParsedCommand {
+    @Suppress("NAME_SHADOWING")
+    fun parseSlashCommand(textMessage: CharSequence, formattedMessage: String?, isInThreadTimeline: Boolean): ParsedCommand {
         // check if it has the Slash marker
-        return if (!textMessage.startsWith("/")) {
+        val message = formattedMessage ?: textMessage
+        return if (!message.startsWith("/")) {
             ParsedCommand.ErrorNotACommand
         } else {
             // "/" only
-            if (textMessage.length == 1) {
+            if (message.length == 1) {
                 return ParsedCommand.ErrorEmptySlashCommand
             }
 
             // Exclude "//"
-            if ("/" == textMessage.substring(1, 2)) {
+            if ("/" == message.substring(1, 2)) {
                 return ParsedCommand.ErrorNotACommand
             }
 
-            val messageParts = try {
-                textMessage.split("\\s+".toRegex()).dropLastWhile { it.isEmpty() }
-            } catch (e: Exception) {
-                Timber.e(e, "## parseSlashCommand() : split failed")
-                null
-            }
-
-            // test if the string cut fails
-            if (messageParts.isNullOrEmpty()) {
-                return ParsedCommand.ErrorEmptySlashCommand
-            }
-
+            val (messageParts, message) = extractMessage(message.toString()) ?: return ParsedCommand.ErrorEmptySlashCommand
             val slashCommand = messageParts.first()
-            val message = textMessage.substring(slashCommand.length).trim()
 
             getNotSupportedByThreads(isInThreadTimeline, slashCommand)?.let {
                 return ParsedCommand.ErrorCommandNotSupportedInThreads(it)
@@ -71,7 +57,12 @@ class CommandParser @Inject constructor() {
             when {
                 Command.PLAIN.matches(slashCommand) -> {
                     if (message.isNotEmpty()) {
-                        ParsedCommand.SendPlainText(message = message)
+                        if (formattedMessage != null) {
+                            val trimmedPlainTextMessage = extractMessage(textMessage.toString())?.second.orEmpty()
+                            ParsedCommand.SendFormattedText(message = trimmedPlainTextMessage, formattedMessage = message)
+                        } else {
+                            ParsedCommand.SendPlainText(message = message)
+                        }
                     } else {
                         ParsedCommand.ErrorSyntax(Command.PLAIN)
                     }
@@ -317,6 +308,13 @@ class CommandParser @Inject constructor() {
                         ParsedCommand.ErrorSyntax(Command.MARKDOWN)
                     }
                 }
+                Command.DEVTOOLS.matches(slashCommand) -> {
+                    if (messageParts.size == 1) {
+                        ParsedCommand.DevTools
+                    } else {
+                        ParsedCommand.ErrorSyntax(Command.DEVTOOLS)
+                    }
+                }
                 Command.CLEAR_SCALAR_TOKEN.matches(slashCommand) -> {
                     if (messageParts.size == 1) {
                         ParsedCommand.ClearScalarToken
@@ -336,6 +334,9 @@ class CommandParser @Inject constructor() {
                 }
                 Command.LENNY.matches(slashCommand) -> {
                     ParsedCommand.SendLenny(message)
+                }
+                Command.TABLE_FLIP.matches(slashCommand) -> {
+                    ParsedCommand.SendTableFlip(message)
                 }
                 Command.DISCARD_SESSION.matches(slashCommand) -> {
                     if (messageParts.size == 1) {
@@ -397,12 +398,34 @@ class CommandParser @Inject constructor() {
                         ParsedCommand.ErrorSyntax(Command.UPGRADE_ROOM)
                     }
                 }
+                Command.CRASH_APP.matches(slashCommand) && vectorPreferences.developerMode() -> {
+                    throw RuntimeException("Application crashed from user demand")
+                }
                 else -> {
                     // Unknown command
                     ParsedCommand.ErrorUnknownSlashCommand(slashCommand)
                 }
             }
         }
+    }
+
+    private fun extractMessage(message: String): Pair<List<String>, String>? {
+        val messageParts = try {
+            message.split("\\s+".toRegex()).dropLastWhile { it.isEmpty() }
+        } catch (e: Exception) {
+            Timber.e(e, "## parseSlashCommand() : split failed")
+            null
+        }
+
+        // test if the string cut fails
+        if (messageParts.isNullOrEmpty()) {
+            return null
+        }
+
+        val slashCommand = messageParts.first()
+        val trimmedMessage = message.substring(slashCommand.length).trim()
+
+        return messageParts to trimmedMessage
     }
 
     private val notSupportedThreadsCommands: List<Command> by lazy {

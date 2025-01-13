@@ -1,18 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.roomprofile
@@ -36,8 +26,10 @@ import im.vector.app.features.roomprofile.banned.RoomBannedMemberListFragment
 import im.vector.app.features.roomprofile.members.RoomMemberListFragment
 import im.vector.app.features.roomprofile.notifications.RoomNotificationSettingsFragment
 import im.vector.app.features.roomprofile.permissions.RoomPermissionsFragment
+import im.vector.app.features.roomprofile.polls.RoomPollsFragment
 import im.vector.app.features.roomprofile.settings.RoomSettingsFragment
 import im.vector.app.features.roomprofile.uploads.RoomUploadsFragment
+import im.vector.lib.core.utils.compat.getParcelableCompat
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
@@ -68,16 +60,17 @@ class RoomProfileActivity :
 
     private val requireActiveMembershipViewModel: RequireActiveMembershipViewModel by viewModel()
 
-    @Inject
-    lateinit var roomDetailPendingActionStore: RoomDetailPendingActionStore
+    @Inject lateinit var roomDetailPendingActionStore: RoomDetailPendingActionStore
 
     override fun getBinding(): ActivitySimpleBinding {
         return ActivitySimpleBinding.inflate(layoutInflater)
     }
 
+    override fun getCoordinatorLayout() = views.coordinatorLayout
+
     override fun initUiAndData() {
         sharedActionViewModel = viewModelProvider.get(RoomProfileSharedActionViewModel::class.java)
-        roomProfileArgs = intent?.extras?.getParcelable(Mavericks.KEY_ARG) ?: return
+        roomProfileArgs = intent?.extras?.getParcelableCompat(Mavericks.KEY_ARG) ?: return
         if (isFirstCreation()) {
             when (intent?.extras?.getInt(EXTRA_DIRECT_ACCESS, EXTRA_DIRECT_ACCESS_ROOM_ROOT)) {
                 EXTRA_DIRECT_ACCESS_ROOM_SETTINGS -> {
@@ -98,6 +91,7 @@ class RoomProfileActivity :
                         RoomProfileSharedAction.OpenRoomSettings -> openRoomSettings()
                         RoomProfileSharedAction.OpenRoomAliasesSettings -> openRoomAlias()
                         RoomProfileSharedAction.OpenRoomPermissionsSettings -> openRoomPermissions()
+                        RoomProfileSharedAction.OpenRoomPolls -> openRoomPolls()
                         RoomProfileSharedAction.OpenRoomUploads -> openRoomUploads()
                         RoomProfileSharedAction.OpenBannedRoomMembers -> openBannedRoomMembers()
                         RoomProfileSharedAction.OpenRoomNotificationSettings -> openRoomNotificationSettings()
@@ -124,6 +118,10 @@ class RoomProfileActivity :
             Toast.makeText(this, roomLeft.leftMessage, Toast.LENGTH_LONG).show()
         }
         finish()
+    }
+
+    private fun openRoomPolls() {
+        addFragmentToBackstack(views.simpleFragmentContainer, RoomPollsFragment::class.java, roomProfileArgs)
     }
 
     private fun openRoomUploads() {

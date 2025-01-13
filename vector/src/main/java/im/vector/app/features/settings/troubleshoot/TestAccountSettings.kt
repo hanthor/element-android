@@ -1,26 +1,15 @@
 /*
- * Copyright 2018 New Vector Ltd
+ * Copyright 2018-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 package im.vector.app.features.settings.troubleshoot
 
-import android.content.Intent
-import androidx.activity.result.ActivityResultLauncher
-import im.vector.app.R
 import im.vector.app.core.di.ActiveSessionHolder
 import im.vector.app.core.resources.StringProvider
 import im.vector.app.features.session.coroutineScope
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -36,21 +25,21 @@ class TestAccountSettings @Inject constructor(
         private val stringProvider: StringProvider,
         private val activeSessionHolder: ActiveSessionHolder
 ) :
-        TroubleshootTest(R.string.settings_troubleshoot_test_account_settings_title) {
+        TroubleshootTest(CommonStrings.settings_troubleshoot_test_account_settings_title) {
 
-    override fun perform(activityResultLauncher: ActivityResultLauncher<Intent>) {
+    override fun perform(testParameters: TestParameters) {
         val session = activeSessionHolder.getSafeActiveSession() ?: return
         val defaultRule = session.pushRuleService().getPushRules().getAllRules()
                 .find { it.ruleId == RuleIds.RULE_ID_DISABLE_ALL }
 
         if (defaultRule != null) {
             if (!defaultRule.enabled) {
-                description = stringProvider.getString(R.string.settings_troubleshoot_test_account_settings_success)
+                description = stringProvider.getString(CommonStrings.settings_troubleshoot_test_account_settings_success)
                 quickFix = null
                 status = TestStatus.SUCCESS
             } else {
-                description = stringProvider.getString(R.string.settings_troubleshoot_test_account_settings_failed)
-                quickFix = object : TroubleshootQuickFix(R.string.settings_troubleshoot_test_account_settings_quickfix) {
+                description = stringProvider.getString(CommonStrings.settings_troubleshoot_test_account_settings_failed)
+                quickFix = object : TroubleshootQuickFix(CommonStrings.settings_troubleshoot_test_account_settings_quickfix) {
                     override fun doFix() {
                         if (manager?.diagStatus == TestStatus.RUNNING) return // wait before all is finished
 
@@ -59,7 +48,7 @@ class TestAccountSettings @Inject constructor(
                                 session.pushRuleService().updatePushRuleEnableStatus(RuleKind.OVERRIDE, defaultRule, !defaultRule.enabled)
                             }
                             withContext(Dispatchers.Main) {
-                                manager?.retry(activityResultLauncher)
+                                manager?.retry(testParameters)
                             }
                         }
                     }

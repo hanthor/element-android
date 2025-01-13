@@ -30,7 +30,7 @@ Element 透过不同的方式让你掌控一切：
 你可以与 Matrix 网络上的任何人聊天，不论他们是使用 Element、其他 Matrix 应用或其他通讯应用。
 
 <b>超级安全</b>
-真正的端到端加密（仅有那些在对话中的可以解密讯息）以及交叉签章装置验证。
+真正的端到端加密（仅有那些在对话中的人可以解密讯息）以及交叉签章装置验证。
 
 <b>完整的通讯与整合</b>
 信息传递、语音与视频通话、文件分享、画面分享与超多的整合、机器人与挂件。建构房间、社群、保持联络并完成工作。
@@ -39,4 +39,4 @@ Element 透过不同的方式让你掌控一切：
 无论你身在何处，都可以透过在你所有设备与网页 https://app.element.io 间完全同步的信息历史保持联络
 
 <b>开源</b>
- Element Android 是一个开源项目，由 GitHub 托管。 请在 https://github.com/vector-im/element-android 报告错误和/或为其开发做出贡献
+ Element Android 是一个开源项目，由 GitHub 托管。 请在 https://github.com/element-hq/element-android 报告错误和/或为其开发做出贡献

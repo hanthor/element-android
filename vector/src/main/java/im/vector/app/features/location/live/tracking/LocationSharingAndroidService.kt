@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2022 New Vector Ltd
+ * Copyright 2022-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.location.live.tracking
@@ -21,14 +12,15 @@ import android.os.IBinder
 import android.os.Parcelable
 import androidx.core.app.NotificationManagerCompat
 import dagger.hilt.android.AndroidEntryPoint
-import im.vector.app.R
 import im.vector.app.core.di.ActiveSessionHolder
+import im.vector.app.core.extensions.startForegroundCompat
 import im.vector.app.core.services.VectorAndroidService
 import im.vector.app.features.location.LocationData
 import im.vector.app.features.location.LocationTracker
 import im.vector.app.features.location.live.GetLiveLocationShareSummaryUseCase
 import im.vector.app.features.redaction.CheckIfEventIsRedactedUseCase
 import im.vector.app.features.session.coroutineScope
+import im.vector.lib.core.utils.compat.getParcelableExtraCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -95,7 +87,7 @@ class LocationSharingAndroidService : VectorAndroidService(), LocationTracker.Ca
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startInProgress = true
 
-        val roomArgs = intent?.getParcelableExtra(EXTRA_ROOM_ARGS) as? RoomArgs
+        val roomArgs = intent?.getParcelableExtraCompat(EXTRA_ROOM_ARGS) as? RoomArgs
 
         Timber.i("onStartCommand. sessionId - roomId ${roomArgs?.sessionId} - ${roomArgs?.roomId}")
 
@@ -105,7 +97,7 @@ class LocationSharingAndroidService : VectorAndroidService(), LocationTracker.Ca
             if (foregroundModeStarted) {
                 NotificationManagerCompat.from(this).notify(FOREGROUND_SERVICE_NOTIFICATION_ID, notification)
             } else {
-                startForeground(FOREGROUND_SERVICE_NOTIFICATION_ID, notification)
+                startForegroundCompat(FOREGROUND_SERVICE_NOTIFICATION_ID, notification)
                 foregroundModeStarted = true
             }
 
@@ -124,10 +116,7 @@ class LocationSharingAndroidService : VectorAndroidService(), LocationTracker.Ca
         val updateLiveResult = session
                 .getRoom(roomArgs.roomId)
                 ?.locationSharingService()
-                ?.startLiveLocationShare(
-                        timeoutMillis = roomArgs.durationMillis,
-                        description = getString(R.string.live_location_description)
-                )
+                ?.startLiveLocationShare(roomArgs.durationMillis)
 
         updateLiveResult
                 ?.let { result ->
@@ -191,7 +180,7 @@ class LocationSharingAndroidService : VectorAndroidService(), LocationTracker.Ca
     }
 
     override fun onNoLocationProviderAvailable() {
-        stopForeground(true)
+        stopForegroundCompat()
         stopSelf()
     }
 

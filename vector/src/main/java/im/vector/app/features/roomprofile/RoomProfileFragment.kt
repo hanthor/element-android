@@ -1,18 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.roomprofile
@@ -53,6 +43,8 @@ import im.vector.app.features.home.room.detail.RoomDetailPendingActionStore
 import im.vector.app.features.home.room.detail.upgrade.MigrateRoomBottomSheet
 import im.vector.app.features.home.room.list.actions.RoomListQuickActionsSharedAction
 import im.vector.app.features.home.room.list.actions.RoomListQuickActionsSharedActionViewModel
+import im.vector.app.features.navigation.SettingsActivityPayload
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.parcelize.Parcelize
@@ -63,7 +55,7 @@ import javax.inject.Inject
 
 @Parcelize
 data class RoomProfileArgs(
-        val roomId: String
+        val roomId: String,
 ) : Parcelable
 
 @AndroidEntryPoint
@@ -142,7 +134,7 @@ class RoomProfileFragment :
     }
 
     private fun setupWaitingView() {
-        views.waitingView.waitingStatusText.setText(R.string.please_wait)
+        views.waitingView.waitingStatusText.setText(CommonStrings.please_wait)
         views.waitingView.waitingStatusText.isVisible = true
     }
 
@@ -206,6 +198,7 @@ class RoomProfileFragment :
     }
 
     override fun onDestroyView() {
+        roomProfileController.callback = null
         views.matrixProfileAppBarLayout.removeOnOffsetChangedListener(appBarStateChangeListener)
         views.matrixProfileRecyclerView.cleanup()
         appBarStateChangeListener = null
@@ -243,10 +236,10 @@ class RoomProfileFragment :
 
     override fun onEnableEncryptionClicked() {
         MaterialAlertDialogBuilder(requireActivity())
-                .setTitle(R.string.room_settings_enable_encryption_dialog_title)
-                .setMessage(R.string.room_settings_enable_encryption_dialog_content)
-                .setNegativeButton(R.string.action_cancel, null)
-                .setPositiveButton(R.string.room_settings_enable_encryption_dialog_submit) { _, _ ->
+                .setTitle(CommonStrings.room_settings_enable_encryption_dialog_title)
+                .setMessage(CommonStrings.room_settings_enable_encryption_dialog_content)
+                .setNegativeButton(CommonStrings.action_cancel, null)
+                .setPositiveButton(CommonStrings.room_settings_enable_encryption_dialog_submit) { _, _ ->
                     roomProfileViewModel.handle(RoomProfileAction.EnableEncryption)
                 }
                 .show()
@@ -266,6 +259,10 @@ class RoomProfileFragment :
 
     override fun onNotificationsClicked() {
         roomProfileSharedActionViewModel.post(RoomProfileSharedAction.OpenRoomNotificationSettings)
+    }
+
+    override fun onPollHistoryClicked() {
+        roomProfileSharedActionViewModel.post(RoomProfileSharedAction.OpenRoomPolls)
     }
 
     override fun onUploadsClicked() {
@@ -292,19 +289,22 @@ class RoomProfileFragment :
     override fun onLeaveRoomClicked() {
         val isPublicRoom = roomProfileViewModel.isPublicRoom()
         val message = buildString {
-            append(getString(R.string.room_participants_leave_prompt_msg))
+            append(getString(CommonStrings.room_participants_leave_prompt_msg))
             if (!isPublicRoom) {
                 append("\n\n")
-                append(getString(R.string.room_participants_leave_private_warning))
+                append(getString(CommonStrings.room_participants_leave_private_warning))
             }
         }
-        MaterialAlertDialogBuilder(requireContext(), if (isPublicRoom) 0 else R.style.ThemeOverlay_Vector_MaterialAlertDialog_Destructive)
-                .setTitle(R.string.room_participants_leave_prompt_title)
+        MaterialAlertDialogBuilder(
+                requireContext(),
+                if (isPublicRoom) 0 else im.vector.lib.ui.styles.R.style.ThemeOverlay_Vector_MaterialAlertDialog_Destructive
+        )
+                .setTitle(CommonStrings.room_participants_leave_prompt_title)
                 .setMessage(message)
-                .setPositiveButton(R.string.action_leave) { _, _ ->
+                .setPositiveButton(CommonStrings.action_leave) { _, _ ->
                     roomProfileViewModel.handle(RoomProfileAction.LeaveRoom)
                 }
-                .setNegativeButton(R.string.action_cancel, null)
+                .setNegativeButton(CommonStrings.action_cancel, null)
                 .show()
     }
 
@@ -344,6 +344,14 @@ class RoomProfileFragment :
                 chooserTitle = null,
                 text = permalink
         )
+    }
+
+    override fun setEncryptedToVerifiedDevicesOnly(enabled: Boolean) {
+        roomProfileViewModel.handle(RoomProfileAction.SetEncryptToVerifiedDeviceOnly(enabled))
+    }
+
+    override fun openGlobalBlockSettings() {
+        navigator.openSettings(requireContext(), SettingsActivityPayload.SecurityPrivacy)
     }
 
     private fun onAvatarClicked(view: View) = withState(roomProfileViewModel) { state ->

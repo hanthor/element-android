@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 package im.vector.app.features.notifications
 
@@ -31,6 +22,7 @@ data class NotifiableMessageEvent(
         // NotSerializableException when persisting this to storage
         val imageUriString: String?,
         val roomId: String,
+        val threadId: String?,
         val roomName: String?,
         val roomIsDirect: Boolean = false,
         val roomAvatarPath: String? = null,
@@ -50,4 +42,11 @@ data class NotifiableMessageEvent(
 
     val imageUri: Uri?
         get() = imageUriString?.let { Uri.parse(it) }
+}
+
+fun NotifiableMessageEvent.shouldIgnoreMessageEventInRoom(currentRoomId: String?, currentThreadId: String?): Boolean {
+    return when (currentRoomId) {
+        null -> false
+        else -> roomId == currentRoomId && threadId == currentThreadId
+    }
 }

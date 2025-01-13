@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.onboarding.ftueauth
@@ -24,22 +15,18 @@ import android.view.ViewGroup
 import androidx.core.text.toSpannable
 import androidx.core.view.isVisible
 import dagger.hilt.android.AndroidEntryPoint
-import im.vector.app.R
 import im.vector.app.core.animations.play
-import im.vector.app.core.di.ActiveSessionHolder
 import im.vector.app.core.utils.isAnimationEnabled
 import im.vector.app.core.utils.styleMatchingText
 import im.vector.app.databinding.FragmentFtueAccountCreatedBinding
 import im.vector.app.features.onboarding.OnboardingAction
 import im.vector.app.features.onboarding.OnboardingViewEvents
 import im.vector.app.features.onboarding.OnboardingViewState
-import javax.inject.Inject
+import im.vector.lib.strings.CommonStrings
 
 @AndroidEntryPoint
 class FtueAuthAccountCreatedFragment :
         AbstractFtueAuthFragment<FragmentFtueAccountCreatedBinding>() {
-
-    @Inject lateinit var activeSessionHolder: ActiveSessionHolder
 
     private var hasPlayedConfetti = false
 
@@ -53,15 +40,15 @@ class FtueAuthAccountCreatedFragment :
     }
 
     private fun setupViews() {
-        val userId = activeSessionHolder.getActiveSession().myUserId
-        val subtitle = getString(R.string.ftue_account_created_subtitle, userId).toSpannable().styleMatchingText(userId, Typeface.BOLD)
-        views.accountCreatedSubtitle.text = subtitle
         views.accountCreatedPersonalize.debouncedClicks { viewModel.handle(OnboardingAction.PersonalizeProfile) }
         views.accountCreatedTakeMeHome.debouncedClicks { viewModel.handle(OnboardingAction.PostViewEvent(OnboardingViewEvents.OnTakeMeHome)) }
         views.accountCreatedTakeMeHomeCta.debouncedClicks { viewModel.handle(OnboardingAction.PostViewEvent(OnboardingViewEvents.OnTakeMeHome)) }
     }
 
     override fun updateWithState(state: OnboardingViewState) {
+        val userId = state.personalizationState.userId
+        val subtitle = getString(CommonStrings.ftue_account_created_subtitle, userId).toSpannable().styleMatchingText(userId, Typeface.BOLD)
+        views.accountCreatedSubtitle.text = subtitle
         val canPersonalize = state.personalizationState.supportsPersonalization()
         views.personalizeButtonGroup.isVisible = canPersonalize
         views.takeMeHomeButtonGroup.isVisible = !canPersonalize

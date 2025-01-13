@@ -1,22 +1,12 @@
 /*
- * Copyright (c) 2020 New Vector Ltd
+ * Copyright 2020-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.detail.timeline.factory
 
-import im.vector.app.R
 import im.vector.app.core.resources.StringProvider
 import im.vector.app.features.home.room.detail.timeline.MessageColorProvider
 import im.vector.app.features.home.room.detail.timeline.helper.AvatarSizeProvider
@@ -24,6 +14,7 @@ import im.vector.app.features.home.room.detail.timeline.helper.MessageInformatio
 import im.vector.app.features.home.room.detail.timeline.helper.MessageItemAttributesFactory
 import im.vector.app.features.home.room.detail.timeline.item.StatusTileTimelineItem
 import im.vector.app.features.home.room.detail.timeline.item.StatusTileTimelineItem_
+import im.vector.lib.strings.CommonStrings
 import org.matrix.android.sdk.api.crypto.MXCRYPTO_ALGORITHM_MEGOLM
 import org.matrix.android.sdk.api.extensions.orFalse
 import org.matrix.android.sdk.api.session.Session
@@ -56,25 +47,40 @@ class EncryptionItemFactory @Inject constructor(
         val description: String
         val shield: StatusTileTimelineItem.ShieldUIState
         if (isSafeAlgorithm) {
-            val isDirect = session.getRoomSummary(event.root.roomId.orEmpty())?.isDirect.orFalse()
-            title = stringProvider.getString(R.string.encryption_enabled)
-            description = stringProvider.getString(
+            val roomSummary = session.getRoomSummary(event.root.roomId.orEmpty())
+            val isDirect = roomSummary?.isDirect.orFalse()
+            val (resTitle, resDescription, resShield) = when {
+                isDirect -> {
+                    val isWaitingUser = roomSummary?.isEncrypted.orFalse() && roomSummary?.joinedMembersCount == 1 && roomSummary.invitedMembersCount == 0
                     when {
-                        isDirect && RoomLocalEcho.isLocalEchoId(event.root.roomId.orEmpty()) -> {
-                            R.string.direct_room_encryption_enabled_tile_description_future
-                        }
-                        isDirect -> {
-                            R.string.direct_room_encryption_enabled_tile_description
-                        }
-                        else -> {
-                            R.string.encryption_enabled_tile_description
-                        }
+                        RoomLocalEcho.isLocalEchoId(event.root.roomId.orEmpty()) -> Triple(
+                                CommonStrings.encryption_enabled,
+                                CommonStrings.direct_room_encryption_enabled_tile_description_future,
+                                StatusTileTimelineItem.ShieldUIState.BLACK
+                        )
+                        isWaitingUser -> Triple(
+                                CommonStrings.direct_room_encryption_enabled_waiting_users,
+                                CommonStrings.direct_room_encryption_enabled_waiting_users_tile_description,
+                                StatusTileTimelineItem.ShieldUIState.WAITING
+                        )
+                        else -> Triple(
+                                CommonStrings.encryption_enabled,
+                                CommonStrings.direct_room_encryption_enabled_tile_description,
+                                StatusTileTimelineItem.ShieldUIState.BLACK
+                        )
                     }
-            )
-            shield = StatusTileTimelineItem.ShieldUIState.BLACK
+                }
+                else -> {
+                    Triple(CommonStrings.encryption_enabled, CommonStrings.encryption_enabled_tile_description, StatusTileTimelineItem.ShieldUIState.BLACK)
+                }
+            }
+
+            title = stringProvider.getString(resTitle)
+            description = stringProvider.getString(resDescription)
+            shield = resShield
         } else {
-            title = stringProvider.getString(R.string.encryption_misconfigured)
-            description = stringProvider.getString(R.string.encryption_unknown_algorithm_tile_description)
+            title = stringProvider.getString(CommonStrings.encryption_misconfigured)
+            description = stringProvider.getString(CommonStrings.encryption_unknown_algorithm_tile_description)
             shield = StatusTileTimelineItem.ShieldUIState.ERROR
         }
         return StatusTileTimelineItem_()

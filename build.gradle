@@ -24,15 +24,16 @@ buildscript {
         classpath libs.gradle.gradlePlugin
         classpath libs.gradle.kotlinPlugin
         classpath libs.gradle.hiltPlugin
-        classpath 'com.google.firebase:firebase-appdistribution-gradle:3.0.3'
-        classpath 'com.google.gms:google-services:4.3.13'
-        classpath 'org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:3.4.0.2513'
-        classpath 'com.google.android.gms:oss-licenses-plugin:0.10.5'
-        classpath "com.likethesalad.android:stem-plugin:2.2.2"
-        classpath 'org.owasp:dependency-check-gradle:7.1.2'
-        classpath "org.jetbrains.dokka:dokka-gradle-plugin:1.7.10"
+        classpath 'com.google.firebase:firebase-appdistribution-gradle:4.0.0'
+        classpath 'com.google.gms:google-services:4.3.15'
+        classpath 'org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:4.0.0.2929'
+        classpath 'com.google.android.gms:oss-licenses-plugin:0.10.6'
+        classpath "com.likethesalad.android:stem-plugin:2.9.0"
+        classpath 'org.owasp:dependency-check-gradle:8.2.1'
+        classpath "org.jetbrains.dokka:dokka-gradle-plugin:1.8.10"
         classpath "org.jetbrains.kotlinx:kotlinx-knit:0.4.0"
         classpath 'com.jakewharton:butterknife-gradle-plugin:10.2.3'
+        classpath libs.squareup.paparazziPlugin
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
     }
@@ -40,12 +41,16 @@ buildscript {
 
 plugins {
     // ktlint Plugin
-    id "org.jlleitschuh.gradle.ktlint" version "11.0.0"
+    id "org.jlleitschuh.gradle.ktlint" version "11.3.2"
     // Detekt
-    id "io.gitlab.arturbosch.detekt" version "1.21.0"
+    id "io.gitlab.arturbosch.detekt" version "1.23.7"
+    // Ksp
+    id "com.google.devtools.ksp" version "1.9.24-1.0.20"
 
     // Dependency Analysis
-    id 'com.autonomousapps.dependency-analysis' version "1.13.1"
+    id 'com.autonomousapps.dependency-analysis' version "1.20.0"
+    // Gradle doctor
+    id "com.osacky.doctor" version "0.8.1"
 }
 
 // https://github.com/jeremylong/DependencyCheck
@@ -57,6 +62,9 @@ dependencyCheck {
             "./tools/dependencycheck/suppressions.xml"
     ]
 }
+
+// Gradle doctor configuration
+apply from: './tools/gradle/doctor.gradle'
 
 allprojects {
     apply plugin: "org.jlleitschuh.gradle.ktlint"
@@ -71,6 +79,14 @@ allprojects {
                 groups.mavenCentral.group.each { includeGroup it }
             }
         }
+        // snapshots repository
+        maven {
+            url "https://oss.sonatype.org/content/repositories/snapshots"
+            content {
+                groups.snapshot.regex.each { includeGroupByRegex it }
+                groups.snapshot.group.each { includeGroup it }
+            }
+        }
         maven {
             url 'https://jitpack.io'
             content {
@@ -80,9 +96,9 @@ allprojects {
         }
         // Jitsi repo
         maven {
-            url "https://github.com/vector-im/jitsi_libre_maven/raw/main/android-sdk-5.0.2"
+            url "https://github.com/element-hq/jitsi_libre_maven/raw/main/mobile-sdk-10.2.0"
             // Note: to test Jitsi release you can use a local file like this:
-            // url "file:///Users/bmarty/workspaces/jitsi_libre_maven/android-sdk-3.10.0"
+            // url "file:///Users/bmarty/workspaces/jitsi_libre_maven/mobile-sdk-10.2.0"
             content {
                 groups.jitsi.regex.each { includeGroupByRegex it }
                 groups.jitsi.group.each { includeGroup it }
@@ -96,13 +112,11 @@ allprojects {
                 groups.google.group.each { includeGroup it }
             }
         }
-        //noinspection JcenterRepositoryObsolete
-        // Do not use `jcenter`, it prevents Dependabot from working properly
         maven {
-            url 'https://jcenter.bintray.com'
+            url 'https://s01.oss.sonatype.org/content/repositories/snapshots'
             content {
-                groups.jcenter.regex.each { includeGroupByRegex it }
-                groups.jcenter.group.each { includeGroup it }
+                groups.mavenSnapshots.regex.each { includeGroupByRegex it }
+                groups.mavenSnapshots.group.each { includeGroup it }
             }
         }
     }
@@ -131,6 +145,9 @@ allprojects {
             reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.PLAIN)
             // To have XML report for Danger
             reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.CHECKSTYLE)
+        }
+        filter {
+            exclude { element -> element.file.path.contains("$buildDir/generated/") }
         }
         disabledRules = [
                 // TODO Re-enable these 4 rules after reformatting project
@@ -184,21 +201,21 @@ if (launchTask.contains("coverage".toLowerCase())) {
 apply plugin: 'org.sonarqube'
 
 // To run a sonar analysis:
-// Run './gradlew sonarqube -Dsonar.login=<REPLACE_WITH_SONAR_KEY>'
+// Run './gradlew sonar -Dsonar.login=<REPLACE_WITH_SONAR_KEY>'
 // The SONAR_KEY is stored in passbolt as Token Sonar Cloud Bma
 
-sonarqube {
+sonar {
     properties {
         property "sonar.projectName", "element-android"
-        property "sonar.projectKey", "vector-im_element-android"
+        property "sonar.projectKey", "element-android"
         property "sonar.host.url", "https://sonarcloud.io"
         property "sonar.projectVersion", project(":vector").android.defaultConfig.versionName
         property "sonar.sourceEncoding", "UTF-8"
-        property "sonar.links.homepage", "https://github.com/vector-im/element-android/"
-        property "sonar.links.ci", "https://github.com/vector-im/element-android/actions"
-        property "sonar.links.scm", "https://github.com/vector-im/element-android/"
-        property "sonar.links.issue", "https://github.com/vector-im/element-android/issues"
-        property "sonar.organization", "new_vector_ltd_organization"
+        property "sonar.links.homepage", "https://github.com/element-hq/element-android/"
+        property "sonar.links.ci", "https://github.com/element-hq/element-android/actions"
+        property "sonar.links.scm", "https://github.com/element-hq/element-android/"
+        property "sonar.links.issue", "https://github.com/element-hq/element-android/issues"
+        property "sonar.organization", "element-hq"
         property "sonar.java.coveragePlugin", "jacoco"
         property "sonar.coverage.jacoco.xmlReportPaths", "${project.buildDir}/reports/jacoco/generateCoverageReport/generateCoverageReport.xml"
         property "sonar.login", project.hasProperty("SONAR_LOGIN") ? SONAR_LOGIN : "invalid"
@@ -206,7 +223,7 @@ sonarqube {
 }
 
 project(":vector") {
-    sonarqube {
+    sonar {
         properties {
             property "sonar.sources", project(":vector").android.sourceSets.main.java.srcDirs
             // exclude source code from analyses separated by a colon (:)
@@ -216,14 +233,14 @@ project(":vector") {
     }
 }
 
-project(":library:diff-match-patch") {
-    sonarqube {
+project(":library:external:diff-match-patch") {
+    sonar {
         skipProject = true
     }
 }
 
 //project(":matrix-sdk-android") {
-//    sonarqube {
+//    sonar {
 //        properties {
 //            property "sonar.sources", project(":matrix-sdk-android").android.sourceSets.main.java.srcDirs
 //            // exclude source code from analyses separated by a colon (:)
@@ -283,6 +300,68 @@ dependencyAnalysis {
                         "org.maplibre.gl:android-plugin-annotation-v9",
                         "org.maplibre.gl:android-sdk",
                 )
+            }
+        }
+    }
+}
+
+tasks.register("recordScreenshots", GradleBuild) {
+    startParameter.projectProperties.screenshot = ""
+    tasks = [':vector:recordPaparazziDebug']
+}
+
+tasks.register("verifyScreenshots", GradleBuild) {
+    startParameter.projectProperties.screenshot = ""
+    tasks = [':vector:verifyPaparazziDebug']
+}
+
+ext.initScreenshotTests = { project ->
+    def hasScreenshots = project.hasProperty("screenshot")
+    if (hasScreenshots) {
+        project.apply plugin: 'app.cash.paparazzi'
+    }
+    project.dependencies { testCompileOnly libs.squareup.paparazzi }
+    project.android.testOptions.unitTests.all {
+        def screenshotTestCapture = "**/*ScreenshotTest*"
+        if (hasScreenshots) {
+            include screenshotTestCapture
+        } else {
+            exclude screenshotTestCapture
+        }
+    }
+}
+
+tasks.withType(Test) {
+    maxHeapSize = "2g"
+}
+
+// Workaround to have KSP generated Kotlin code available in the IDE (for code completion)
+// Ref: https://github.com/airbnb/epoxy/releases/tag/5.0.0beta02
+subprojects { project ->
+    afterEvaluate {
+        if (project.hasProperty("android")) {
+            android {
+                if (it instanceof com.android.build.gradle.LibraryExtension) {
+                    libraryVariants.all { variant ->
+                        def outputFolder = new File("build/generated/ksp/${variant.name}/kotlin")
+                        if (outputFolder.exists()) {
+                            variant.addJavaSourceFoldersToModel(outputFolder)
+                            android.sourceSets.getAt(variant.name).java {
+                                srcDir(outputFolder)
+                            }
+                        }
+                    }
+                } else if (it instanceof com.android.build.gradle.AppExtension) {
+                    applicationVariants.all { variant ->
+                        def outputFolder = new File("build/generated/ksp/${variant.name}/kotlin")
+                        if (outputFolder.exists()) {
+                            variant.addJavaSourceFoldersToModel(outputFolder)
+                            android.sourceSets.getAt(variant.name).java {
+                                srcDir(outputFolder)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.detail.composer
@@ -55,8 +46,8 @@ class AudioMessageHelper @Inject constructor(
     private var amplitudeTicker: CountUpTimer? = null
     private var playbackTicker: CountUpTimer? = null
 
-    fun initializeRecorder(attachmentData: ContentAttachmentData) {
-        voiceRecorder.initializeRecord(attachmentData)
+    fun initializeRecorder(roomId: String, attachmentData: ContentAttachmentData) {
+        voiceRecorder.initializeRecord(roomId, attachmentData)
         amplitudeList.clear()
         attachmentData.waveform?.let {
             amplitudeList.addAll(it)
@@ -66,7 +57,7 @@ class AudioMessageHelper @Inject constructor(
 
     fun startRecording(roomId: String) {
         stopPlayback()
-        playbackTracker.makeAllPlaybacksIdle()
+        playbackTracker.pauseAllPlaybacks()
         amplitudeList.clear()
 
         try {
@@ -114,6 +105,7 @@ class AudioMessageHelper @Inject constructor(
      * When entering in playback mode actually.
      */
     fun pauseRecording() {
+        // TODO should we pause instead of stop?
         voiceRecorder.stopRecord()
         stopRecordingAmplitudes()
     }
@@ -148,7 +140,7 @@ class AudioMessageHelper @Inject constructor(
     }
 
     private fun startPlayback(id: String, file: File) {
-        val currentPlaybackTime = playbackTracker.getPlaybackTime(id)
+        val currentPlaybackTime = playbackTracker.getPlaybackTime(id) ?: 0
 
         try {
             FileInputStream(file).use { fis ->
@@ -197,13 +189,9 @@ class AudioMessageHelper @Inject constructor(
 
     private fun startRecordingAmplitudes() {
         amplitudeTicker?.stop()
-        amplitudeTicker = CountUpTimer(50).apply {
-            tickListener = object : CountUpTimer.TickListener {
-                override fun onTick(milliseconds: Long) {
-                    onAmplitudeTick()
-                }
-            }
-            resume()
+        amplitudeTicker = CountUpTimer(intervalInMs = 50).apply {
+            tickListener = CountUpTimer.TickListener { onAmplitudeTick() }
+            start()
         }
     }
 
@@ -229,12 +217,8 @@ class AudioMessageHelper @Inject constructor(
     private fun startPlaybackTicker(id: String) {
         playbackTicker?.stop()
         playbackTicker = CountUpTimer().apply {
-            tickListener = object : CountUpTimer.TickListener {
-                override fun onTick(milliseconds: Long) {
-                    onPlaybackTick(id)
-                }
-            }
-            resume()
+            tickListener = CountUpTimer.TickListener { onPlaybackTick(id) }
+            start()
         }
         onPlaybackTick(id)
     }
@@ -246,7 +230,7 @@ class AudioMessageHelper @Inject constructor(
             val percentage = currentPosition.toFloat() / totalDuration
             playbackTracker.updatePlayingAtPlaybackTime(id, currentPosition, percentage)
         } else {
-            playbackTracker.stopPlayback(id)
+            playbackTracker.stopPlaybackOrRecorder(id)
             stopPlaybackTicker()
         }
     }
@@ -256,8 +240,8 @@ class AudioMessageHelper @Inject constructor(
         playbackTicker = null
     }
 
-    fun clearTracker() {
-        playbackTracker.clear()
+    fun stopTracking() {
+        playbackTracker.unregisterListeners()
     }
 
     fun stopAllVoiceActions(deleteRecord: Boolean = true): MultiPickerAudioType? {

@@ -1,28 +1,22 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.detail.composer
 
+import android.text.SpannableString
+import androidx.lifecycle.asFlow
 import com.airbnb.mvrx.MavericksViewModelFactory
+import com.airbnb.mvrx.withState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
-import im.vector.app.R
 import im.vector.app.core.di.MavericksAssistedViewModelFactory
 import im.vector.app.core.di.hiltMavericksViewModelFactory
+import im.vector.app.core.extensions.getVectorLastMessageContent
 import im.vector.app.core.platform.VectorViewModel
 import im.vector.app.core.resources.StringProvider
 import im.vector.app.features.analytics.AnalyticsTracker
@@ -39,8 +33,21 @@ import im.vector.app.features.home.room.detail.toMessageType
 import im.vector.app.features.powerlevel.PowerLevelsFlowFactory
 import im.vector.app.features.session.coroutineScope
 import im.vector.app.features.settings.VectorPreferences
+import im.vector.app.features.voice.VoiceFailure
+import im.vector.app.features.voicebroadcast.VoiceBroadcastConstants
+import im.vector.app.features.voicebroadcast.VoiceBroadcastHelper
+import im.vector.app.features.voicebroadcast.model.VoiceBroadcast
+import im.vector.app.features.voicebroadcast.model.VoiceBroadcastState
+import im.vector.app.features.voicebroadcast.model.asVoiceBroadcastEvent
+import im.vector.app.features.voicebroadcast.usecase.GetVoiceBroadcastStateEventLiveUseCase
+import im.vector.app.features.voicebroadcast.voiceBroadcastId
+import im.vector.lib.core.utils.timer.Clock
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.matrix.android.sdk.api.query.QueryStringValue
 import org.matrix.android.sdk.api.session.Session
@@ -52,20 +59,22 @@ import org.matrix.android.sdk.api.session.events.model.toContent
 import org.matrix.android.sdk.api.session.events.model.toModel
 import org.matrix.android.sdk.api.session.getRoom
 import org.matrix.android.sdk.api.session.getRoomSummary
+import org.matrix.android.sdk.api.session.room.Room
 import org.matrix.android.sdk.api.session.room.getStateEvent
 import org.matrix.android.sdk.api.session.room.getTimelineEvent
 import org.matrix.android.sdk.api.session.room.model.PowerLevelsContent
 import org.matrix.android.sdk.api.session.room.model.RoomAvatarContent
 import org.matrix.android.sdk.api.session.room.model.RoomEncryptionAlgorithm
 import org.matrix.android.sdk.api.session.room.model.RoomMemberContent
+import org.matrix.android.sdk.api.session.room.model.message.MessageContentWithFormattedBody
 import org.matrix.android.sdk.api.session.room.model.message.MessageType
 import org.matrix.android.sdk.api.session.room.model.relation.shouldRenderInThread
 import org.matrix.android.sdk.api.session.room.powerlevels.PowerLevelsHelper
 import org.matrix.android.sdk.api.session.room.send.UserDraft
-import org.matrix.android.sdk.api.session.room.timeline.getLastMessageContent
 import org.matrix.android.sdk.api.session.room.timeline.getRelationContent
 import org.matrix.android.sdk.api.session.room.timeline.getTextEditableContent
 import org.matrix.android.sdk.api.session.space.CreateSpaceParams
+import org.matrix.android.sdk.api.util.Optional
 import org.matrix.android.sdk.flow.flow
 import org.matrix.android.sdk.flow.unwrap
 import timber.log.Timber
@@ -79,40 +88,51 @@ class MessageComposerViewModel @AssistedInject constructor(
         private val rainbowGenerator: RainbowGenerator,
         private val audioMessageHelper: AudioMessageHelper,
         private val analyticsTracker: AnalyticsTracker,
+        private val voiceBroadcastHelper: VoiceBroadcastHelper,
+        private val clock: Clock,
+        private val getVoiceBroadcastStateEventLiveUseCase: GetVoiceBroadcastStateEventLiveUseCase,
 ) : VectorViewModel<MessageComposerViewState, MessageComposerAction, MessageComposerViewEvents>(initialState) {
 
-    private val room = session.getRoom(initialState.roomId)!!
+    private val room = session.getRoom(initialState.roomId)
 
     // Keep it out of state to avoid invalidate being called
     private var currentComposerText: CharSequence = ""
 
     init {
-        loadDraftIfAny()
-        observePowerLevelAndEncryption()
-        subscribeToStateInternal()
+        if (room != null) {
+            loadDraftIfAny(room)
+            observePowerLevelAndEncryption(room)
+            observeVoiceBroadcast(room)
+            subscribeToStateInternal()
+        } else {
+            onRoomError()
+        }
     }
 
     override fun handle(action: MessageComposerAction) {
+        val room = this.room ?: return
         when (action) {
-            is MessageComposerAction.EnterEditMode -> handleEnterEditMode(action)
-            is MessageComposerAction.EnterQuoteMode -> handleEnterQuoteMode(action)
+            is MessageComposerAction.EnterEditMode -> handleEnterEditMode(room, action)
+            is MessageComposerAction.EnterQuoteMode -> handleEnterQuoteMode(room, action)
             is MessageComposerAction.EnterRegularMode -> handleEnterRegularMode(action)
-            is MessageComposerAction.EnterReplyMode -> handleEnterReplyMode(action)
-            is MessageComposerAction.SendMessage -> handleSendMessage(action)
-            is MessageComposerAction.UserIsTyping -> handleUserIsTyping(action)
+            is MessageComposerAction.EnterReplyMode -> handleEnterReplyMode(room, action)
+            is MessageComposerAction.SendMessage -> handleSendMessage(room, action)
+            is MessageComposerAction.UserIsTyping -> handleUserIsTyping(room, action)
             is MessageComposerAction.OnTextChanged -> handleOnTextChanged(action)
             is MessageComposerAction.OnVoiceRecordingUiStateChanged -> handleOnVoiceRecordingUiStateChanged(action)
-            is MessageComposerAction.StartRecordingVoiceMessage -> handleStartRecordingVoiceMessage()
-            is MessageComposerAction.EndRecordingVoiceMessage -> handleEndRecordingVoiceMessage(action.isCancelled, action.rootThreadEventId)
+            is MessageComposerAction.StartRecordingVoiceMessage -> handleStartRecordingVoiceMessage(room)
+            is MessageComposerAction.EndRecordingVoiceMessage -> handleEndRecordingVoiceMessage(room, action.isCancelled, action.rootThreadEventId)
             is MessageComposerAction.PlayOrPauseVoicePlayback -> handlePlayOrPauseVoicePlayback(action)
             MessageComposerAction.PauseRecordingVoiceMessage -> handlePauseRecordingVoiceMessage()
             MessageComposerAction.PlayOrPauseRecordingPlayback -> handlePlayOrPauseRecordingPlayback()
-            is MessageComposerAction.InitializeVoiceRecorder -> handleInitializeVoiceRecorder(action.attachmentData)
-            is MessageComposerAction.OnEntersBackground -> handleEntersBackground(action.composerText)
+            is MessageComposerAction.InitializeVoiceRecorder -> handleInitializeVoiceRecorder(room, action.attachmentData)
+            is MessageComposerAction.OnEntersBackground -> handleEntersBackground(room, action.composerText)
             is MessageComposerAction.VoiceWaveformTouchedUp -> handleVoiceWaveformTouchedUp(action)
             is MessageComposerAction.VoiceWaveformMovedTo -> handleVoiceWaveformMovedTo(action)
             is MessageComposerAction.AudioSeekBarMovedTo -> handleAudioSeekBarMovedTo(action)
-            is MessageComposerAction.SlashCommandConfirmed -> handleSlashCommandConfirmed(action)
+            is MessageComposerAction.SlashCommandConfirmed -> handleSlashCommandConfirmed(room, action)
+            is MessageComposerAction.InsertUserDisplayName -> handleInsertUserDisplayName(action)
+            is MessageComposerAction.SetFullScreen -> handleSetFullScreen(action)
         }
     }
 
@@ -121,12 +141,11 @@ class MessageComposerViewModel @AssistedInject constructor(
     }
 
     private fun handleOnTextChanged(action: MessageComposerAction.OnTextChanged) {
-        setState {
-            // Makes sure currentComposerText is upToDate when accessing further setState
-            currentComposerText = action.text
-            this
+        val needsSendButtonVisibilityUpdate = currentComposerText.isBlank() != action.text.isBlank()
+        currentComposerText = SpannableString(action.text)
+        if (needsSendButtonVisibilityUpdate) {
+            updateIsSendButtonVisibility(true)
         }
-        updateIsSendButtonVisibility(true)
     }
 
     private fun subscribeToStateInternal() {
@@ -144,16 +163,22 @@ class MessageComposerViewModel @AssistedInject constructor(
     }
 
     private fun handleEnterRegularMode(action: MessageComposerAction.EnterRegularMode) = setState {
-        copy(sendMode = SendMode.Regular(action.text, action.fromSharing))
+        copy(sendMode = SendMode.Regular(currentComposerText, action.fromSharing))
     }
 
-    private fun handleEnterEditMode(action: MessageComposerAction.EnterEditMode) {
+    private fun handleEnterEditMode(room: Room, action: MessageComposerAction.EnterEditMode) {
         room.getTimelineEvent(action.eventId)?.let { timelineEvent ->
-            setState { copy(sendMode = SendMode.Edit(timelineEvent, timelineEvent.getTextEditableContent())) }
+            val formatted = vectorPreferences.isRichTextEditorEnabled()
+            val editableContent = timelineEvent.getTextEditableContent(formatted)
+            setState { copy(sendMode = SendMode.Edit(timelineEvent, editableContent)) }
         }
     }
 
-    private fun observePowerLevelAndEncryption() {
+    private fun handleSetFullScreen(action: MessageComposerAction.SetFullScreen) {
+        setState { copy(isFullScreen = action.isFullScreen) }
+    }
+
+    private fun observePowerLevelAndEncryption(room: Room) {
         combine(
                 PowerLevelsFlowFactory(room).createFlow(),
                 room.flow().liveRoomSummary().unwrap()
@@ -179,27 +204,40 @@ class MessageComposerViewModel @AssistedInject constructor(
         }
     }
 
-    private fun handleEnterQuoteMode(action: MessageComposerAction.EnterQuoteMode) {
+    private fun observeVoiceBroadcast(room: Room) {
+        room.stateService().getStateEventLive(VoiceBroadcastConstants.STATE_ROOM_VOICE_BROADCAST_INFO, QueryStringValue.Equals(session.myUserId))
+                .asFlow()
+                .map { it.getOrNull()?.asVoiceBroadcastEvent()?.voiceBroadcastId }
+                .flatMapLatest { voiceBroadcastId ->
+                    voiceBroadcastId?.let { getVoiceBroadcastStateEventLiveUseCase.execute(VoiceBroadcast(it, room.roomId)) } ?: flowOf(Optional.empty())
+                }
+                .map { it.getOrNull()?.content?.voiceBroadcastState }
+                .setOnEach {
+                    copy(voiceBroadcastState = it)
+                }
+    }
+
+    private fun handleEnterQuoteMode(room: Room, action: MessageComposerAction.EnterQuoteMode) {
         room.getTimelineEvent(action.eventId)?.let { timelineEvent ->
-            setState { copy(sendMode = SendMode.Quote(timelineEvent, action.text)) }
+            setState { copy(sendMode = SendMode.Quote(timelineEvent, currentComposerText)) }
         }
     }
 
-    private fun handleEnterReplyMode(action: MessageComposerAction.EnterReplyMode) {
+    private fun handleEnterReplyMode(room: Room, action: MessageComposerAction.EnterReplyMode) {
         room.getTimelineEvent(action.eventId)?.let { timelineEvent ->
-            setState { copy(sendMode = SendMode.Reply(timelineEvent, action.text)) }
+            setState { copy(sendMode = SendMode.Reply(timelineEvent, currentComposerText)) }
         }
     }
 
-    private fun handleSendMessage(action: MessageComposerAction.SendMessage) {
+    private fun handleSendMessage(room: Room, action: MessageComposerAction.SendMessage) {
         withState { state ->
-            analyticsTracker.capture(state.toAnalyticsComposer()).also {
-                setState { copy(startsThread = false) }
-            }
+            analyticsTracker.capture(state.toAnalyticsComposer())
+            setState { copy(startsThread = false) }
             when (state.sendMode) {
                 is SendMode.Regular -> {
                     when (val parsedCommand = commandParser.parseSlashCommand(
                             textMessage = action.text,
+                            formattedMessage = action.formattedText,
                             isInThreadTimeline = state.isInThreadTimeline()
                     )) {
                         is ParsedCommand.ErrorNotACommand -> {
@@ -208,14 +246,19 @@ class MessageComposerViewModel @AssistedInject constructor(
                                 room.relationService().replyInThread(
                                         rootThreadEventId = state.rootThreadEventId,
                                         replyInThreadText = action.text,
+                                        formattedText = action.formattedText,
                                         autoMarkdown = action.autoMarkdown
                                 )
                             } else {
-                                room.sendService().sendTextMessage(action.text, autoMarkdown = action.autoMarkdown)
+                                if (action.formattedText != null) {
+                                    room.sendService().sendFormattedTextMessage(action.text.toString(), action.formattedText)
+                                } else {
+                                    room.sendService().sendTextMessage(action.text, autoMarkdown = action.autoMarkdown)
+                                }
                             }
 
                             _viewEvents.post(MessageComposerViewEvents.MessageSent)
-                            popDraft()
+                            popDraft(room)
                         }
                         is ParsedCommand.ErrorSyntax -> {
                             _viewEvents.post(MessageComposerViewEvents.SlashCommandError(parsedCommand.command))
@@ -241,19 +284,41 @@ class MessageComposerViewModel @AssistedInject constructor(
                                 room.sendService().sendTextMessage(parsedCommand.message, autoMarkdown = false)
                             }
                             _viewEvents.post(MessageComposerViewEvents.MessageSent)
-                            popDraft()
+                            popDraft(room)
+                        }
+                        is ParsedCommand.SendFormattedText -> {
+                            // Send the text message to the room, without markdown
+                            if (state.rootThreadEventId != null) {
+                                room.relationService().replyInThread(
+                                        rootThreadEventId = state.rootThreadEventId,
+                                        replyInThreadText = parsedCommand.message,
+                                        formattedText = parsedCommand.formattedMessage,
+                                        autoMarkdown = false
+                                )
+                            } else {
+                                room.sendService().sendFormattedTextMessage(
+                                        text = parsedCommand.message.toString(),
+                                        formattedText = parsedCommand.formattedMessage
+                                )
+                            }
+                            _viewEvents.post(MessageComposerViewEvents.MessageSent)
+                            popDraft(room)
                         }
                         is ParsedCommand.ChangeRoomName -> {
-                            handleChangeRoomNameSlashCommand(parsedCommand)
+                            handleChangeRoomNameSlashCommand(room, parsedCommand)
                         }
                         is ParsedCommand.Invite -> {
-                            handleInviteSlashCommand(parsedCommand)
+                            handleInviteSlashCommand(room, parsedCommand)
                         }
                         is ParsedCommand.Invite3Pid -> {
-                            handleInvite3pidSlashCommand(parsedCommand)
+                            handleInvite3pidSlashCommand(room, parsedCommand)
                         }
                         is ParsedCommand.SetUserPowerLevel -> {
-                            handleSetUserPowerLevel(parsedCommand)
+                            handleSetUserPowerLevel(room, parsedCommand)
+                        }
+                        is ParsedCommand.DevTools -> {
+                            _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
+                            popDraft(room)
                         }
                         is ParsedCommand.ClearScalarToken -> {
                             // TODO
@@ -262,29 +327,29 @@ class MessageComposerViewModel @AssistedInject constructor(
                         is ParsedCommand.SetMarkdown -> {
                             vectorPreferences.setMarkdownEnabled(parsedCommand.enable)
                             _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
-                            popDraft()
+                            popDraft(room)
                         }
                         is ParsedCommand.BanUser -> {
-                            handleBanSlashCommand(parsedCommand)
+                            handleBanSlashCommand(room, parsedCommand)
                         }
                         is ParsedCommand.UnbanUser -> {
-                            handleUnbanSlashCommand(parsedCommand)
+                            handleUnbanSlashCommand(room, parsedCommand)
                         }
                         is ParsedCommand.IgnoreUser -> {
-                            handleIgnoreSlashCommand(parsedCommand)
+                            handleIgnoreSlashCommand(room, parsedCommand)
                         }
                         is ParsedCommand.UnignoreUser -> {
                             handleUnignoreSlashCommand(parsedCommand)
                         }
                         is ParsedCommand.RemoveUser -> {
-                            handleRemoveSlashCommand(parsedCommand)
+                            handleRemoveSlashCommand(room, parsedCommand)
                         }
                         is ParsedCommand.JoinRoom -> {
                             handleJoinToAnotherRoomSlashCommand(parsedCommand)
-                            popDraft()
+                            popDraft(room)
                         }
                         is ParsedCommand.PartRoom -> {
-                            handlePartSlashCommand(parsedCommand)
+                            handlePartSlashCommand(room, parsedCommand)
                         }
                         is ParsedCommand.SendEmote -> {
                             if (state.rootThreadEventId != null) {
@@ -302,7 +367,7 @@ class MessageComposerViewModel @AssistedInject constructor(
                                 )
                             }
                             _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
-                            popDraft()
+                            popDraft(room)
                         }
                         is ParsedCommand.SendRainbow -> {
                             val message = parsedCommand.message.toString()
@@ -316,7 +381,7 @@ class MessageComposerViewModel @AssistedInject constructor(
                                 room.sendService().sendFormattedTextMessage(message, rainbowGenerator.generate(message))
                             }
                             _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
-                            popDraft()
+                            popDraft(room)
                         }
                         is ParsedCommand.SendRainbowEmote -> {
                             val message = parsedCommand.message.toString()
@@ -332,10 +397,10 @@ class MessageComposerViewModel @AssistedInject constructor(
                             }
 
                             _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
-                            popDraft()
+                            popDraft(room)
                         }
                         is ParsedCommand.SendSpoiler -> {
-                            val text = "[${stringProvider.getString(R.string.spoiler)}](${parsedCommand.message})"
+                            val text = "[${stringProvider.getString(CommonStrings.spoiler)}](${parsedCommand.message})"
                             val formattedText = "<span data-mx-spoiler>${parsedCommand.message}</span>"
                             if (state.rootThreadEventId != null) {
                                 room.relationService().replyInThread(
@@ -350,53 +415,58 @@ class MessageComposerViewModel @AssistedInject constructor(
                                 )
                             }
                             _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
-                            popDraft()
+                            popDraft(room)
                         }
                         is ParsedCommand.SendShrug -> {
-                            sendPrefixedMessage("¯\\_(ツ)_/¯", parsedCommand.message, state.rootThreadEventId)
+                            sendPrefixedMessage(room, "¯\\_(ツ)_/¯", parsedCommand.message, state.rootThreadEventId)
                             _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
-                            popDraft()
+                            popDraft(room)
                         }
                         is ParsedCommand.SendLenny -> {
-                            sendPrefixedMessage("( ͡° ͜ʖ ͡°)", parsedCommand.message, state.rootThreadEventId)
+                            sendPrefixedMessage(room, "( ͡° ͜ʖ ͡°)", parsedCommand.message, state.rootThreadEventId)
                             _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
-                            popDraft()
+                            popDraft(room)
+                        }
+                        is ParsedCommand.SendTableFlip -> {
+                            sendPrefixedMessage(room, "(╯°□°）╯︵ ┻━┻", parsedCommand.message, state.rootThreadEventId)
+                            _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
+                            popDraft(room)
                         }
                         is ParsedCommand.SendChatEffect -> {
-                            sendChatEffect(parsedCommand)
+                            sendChatEffect(room, parsedCommand)
                             _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
-                            popDraft()
+                            popDraft(room)
                         }
                         is ParsedCommand.ChangeTopic -> {
-                            handleChangeTopicSlashCommand(parsedCommand)
+                            handleChangeTopicSlashCommand(room, parsedCommand)
                         }
                         is ParsedCommand.ChangeDisplayName -> {
-                            handleChangeDisplayNameSlashCommand(parsedCommand)
+                            handleChangeDisplayNameSlashCommand(room, parsedCommand)
                         }
                         is ParsedCommand.ChangeDisplayNameForRoom -> {
-                            handleChangeDisplayNameForRoomSlashCommand(parsedCommand)
+                            handleChangeDisplayNameForRoomSlashCommand(room, parsedCommand)
                         }
                         is ParsedCommand.ChangeRoomAvatar -> {
-                            handleChangeRoomAvatarSlashCommand(parsedCommand)
+                            handleChangeRoomAvatarSlashCommand(room, parsedCommand)
                         }
                         is ParsedCommand.ChangeAvatarForRoom -> {
-                            handleChangeAvatarForRoomSlashCommand(parsedCommand)
+                            handleChangeAvatarForRoomSlashCommand(room, parsedCommand)
                         }
                         is ParsedCommand.ShowUser -> {
                             _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
                             handleWhoisSlashCommand(parsedCommand)
-                            popDraft()
+                            popDraft(room)
                         }
                         is ParsedCommand.DiscardSession -> {
                             if (room.roomCryptoService().isEncrypted()) {
                                 session.cryptoService().discardOutboundSession(room.roomId)
                                 _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
-                                popDraft()
+                                popDraft(room)
                             } else {
                                 _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
                                 _viewEvents.post(
                                         MessageComposerViewEvents
-                                                .ShowMessage(stringProvider.getString(R.string.command_description_discard_session_not_handled))
+                                                .ShowMessage(stringProvider.getString(CommonStrings.command_description_discard_session_not_handled))
                                 )
                             }
                         }
@@ -416,7 +486,7 @@ class MessageComposerViewModel @AssistedInject constructor(
                                                     null,
                                                     true
                                             )
-                                    popDraft()
+                                    popDraft(room)
                                     _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
                                 } catch (failure: Throwable) {
                                     _viewEvents.post(MessageComposerViewEvents.SlashCommandResultError(failure))
@@ -435,7 +505,7 @@ class MessageComposerViewModel @AssistedInject constructor(
                                                     null,
                                                     false
                                             )
-                                    popDraft()
+                                    popDraft(room)
                                     _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
                                 } catch (failure: Throwable) {
                                     _viewEvents.post(MessageComposerViewEvents.SlashCommandResultError(failure))
@@ -448,7 +518,7 @@ class MessageComposerViewModel @AssistedInject constructor(
                             viewModelScope.launch(Dispatchers.IO) {
                                 try {
                                     session.spaceService().joinSpace(parsedCommand.spaceIdOrAlias)
-                                    popDraft()
+                                    popDraft(room)
                                     _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
                                 } catch (failure: Throwable) {
                                     _viewEvents.post(MessageComposerViewEvents.SlashCommandResultError(failure))
@@ -460,7 +530,7 @@ class MessageComposerViewModel @AssistedInject constructor(
                             viewModelScope.launch(Dispatchers.IO) {
                                 try {
                                     session.roomService().leaveRoom(parsedCommand.roomId)
-                                    popDraft()
+                                    popDraft(room)
                                     _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
                                 } catch (failure: Throwable) {
                                     _viewEvents.post(MessageComposerViewEvents.SlashCommandResultError(failure))
@@ -476,7 +546,7 @@ class MessageComposerViewModel @AssistedInject constructor(
                                     )
                             )
                             _viewEvents.post(MessageComposerViewEvents.SlashCommandResultOk(parsedCommand))
-                            popDraft()
+                            popDraft(room)
                         }
                     }
                 }
@@ -500,16 +570,24 @@ class MessageComposerViewModel @AssistedInject constructor(
                     if (inReplyTo != null) {
                         // TODO check if same content?
                         room.getTimelineEvent(inReplyTo)?.let {
-                            room.relationService().editReply(state.sendMode.timelineEvent, it, action.text.toString())
+                            room.relationService().editReply(state.sendMode.timelineEvent, it, action.text, action.formattedText)
                         }
                     } else {
-                        val messageContent = state.sendMode.timelineEvent.getLastMessageContent()
-                        val existingBody = messageContent?.body ?: ""
-                        if (existingBody != action.text) {
+                        val messageContent = state.sendMode.timelineEvent.getVectorLastMessageContent()
+                        val existingBody: String
+                        val needsEdit = if (messageContent is MessageContentWithFormattedBody) {
+                            existingBody = messageContent.formattedBody ?: ""
+                            existingBody != action.formattedText
+                        } else {
+                            existingBody = messageContent?.body ?: ""
+                            existingBody != action.text
+                        }
+                        if (needsEdit) {
                             room.relationService().editTextMessage(
                                     state.sendMode.timelineEvent,
                                     messageContent?.msgType ?: MessageType.MSGTYPE_TEXT,
                                     action.text,
+                                    action.formattedText,
                                     action.autoMarkdown
                             )
                         } else {
@@ -517,17 +595,18 @@ class MessageComposerViewModel @AssistedInject constructor(
                         }
                     }
                     _viewEvents.post(MessageComposerViewEvents.MessageSent)
-                    popDraft()
+                    popDraft(room)
                 }
                 is SendMode.Quote -> {
                     room.sendService().sendQuotedTextMessage(
                             quotedEvent = state.sendMode.timelineEvent,
                             text = action.text.toString(),
+                            formattedText = action.formattedText,
                             autoMarkdown = action.autoMarkdown,
                             rootThreadEventId = state.rootThreadEventId
                     )
                     _viewEvents.post(MessageComposerViewEvents.MessageSent)
-                    popDraft()
+                    popDraft(room)
                 }
                 is SendMode.Reply -> {
                     val timelineEvent = state.sendMode.timelineEvent
@@ -537,20 +616,22 @@ class MessageComposerViewModel @AssistedInject constructor(
                     state.rootThreadEventId?.let {
                         room.relationService().replyInThread(
                                 rootThreadEventId = it,
-                                replyInThreadText = action.text.toString(),
+                                replyInThreadText = action.text,
                                 autoMarkdown = action.autoMarkdown,
+                                formattedText = action.formattedText,
                                 eventReplied = timelineEvent
                         )
                     } ?: room.relationService().replyToMessage(
                             eventReplied = timelineEvent,
-                            replyText = action.text.toString(),
+                            replyText = action.text,
+                            replyFormattedText = action.formattedText,
                             autoMarkdown = action.autoMarkdown,
                             showInThread = showInThread,
                             rootThreadEventId = rootThreadEventId
                     )
 
                     _viewEvents.post(MessageComposerViewEvents.MessageSent)
-                    popDraft()
+                    popDraft(room)
                 }
                 is SendMode.Voice -> {
                     // do nothing
@@ -559,10 +640,10 @@ class MessageComposerViewModel @AssistedInject constructor(
         }
     }
 
-    private fun popDraft() = withState {
+    private fun popDraft(room: Room) = withState {
         if (it.sendMode is SendMode.Regular && it.sendMode.fromSharing) {
             // If we were sharing, we want to get back our last value from draft
-            loadDraftIfAny()
+            loadDraftIfAny(room)
         } else {
             // Otherwise we clear the composer and remove the draft from db
             setState { copy(sendMode = SendMode.Regular("", false)) }
@@ -572,7 +653,7 @@ class MessageComposerViewModel @AssistedInject constructor(
         }
     }
 
-    private fun loadDraftIfAny() {
+    private fun loadDraftIfAny(room: Room) {
         val currentDraft = room.draftService().getDraft()
         setState {
             copy(
@@ -601,7 +682,7 @@ class MessageComposerViewModel @AssistedInject constructor(
         }
     }
 
-    private fun handleUserIsTyping(action: MessageComposerAction.UserIsTyping) {
+    private fun handleUserIsTyping(room: Room, action: MessageComposerAction.UserIsTyping) {
         if (vectorPreferences.sendTypingNotifs()) {
             if (action.isTyping) {
                 room.typingService().userIsTyping()
@@ -611,13 +692,13 @@ class MessageComposerViewModel @AssistedInject constructor(
         }
     }
 
-    private fun sendChatEffect(sendChatEffect: ParsedCommand.SendChatEffect) {
+    private fun sendChatEffect(room: Room, sendChatEffect: ParsedCommand.SendChatEffect) {
         // If message is blank, convert to an emote, with default message
         if (sendChatEffect.message.isBlank()) {
             val defaultMessage = stringProvider.getString(
                     when (sendChatEffect.chatEffect) {
-                        ChatEffect.CONFETTI -> R.string.default_message_emote_confetti
-                        ChatEffect.SNOWFALL -> R.string.default_message_emote_snow
+                        ChatEffect.CONFETTI -> CommonStrings.default_message_emote_confetti
+                        ChatEffect.SNOWFALL -> CommonStrings.default_message_emote_snow
                     }
             )
             room.sendService().sendTextMessage(defaultMessage, MessageType.MSGTYPE_EMOTE)
@@ -663,25 +744,25 @@ class MessageComposerViewModel @AssistedInject constructor(
         }
     }
 
-    private fun handleChangeTopicSlashCommand(changeTopic: ParsedCommand.ChangeTopic) {
-        launchSlashCommandFlowSuspendable(changeTopic) {
+    private fun handleChangeTopicSlashCommand(room: Room, changeTopic: ParsedCommand.ChangeTopic) {
+        launchSlashCommandFlowSuspendable(room, changeTopic) {
             room.stateService().updateTopic(changeTopic.topic)
         }
     }
 
-    private fun handleInviteSlashCommand(invite: ParsedCommand.Invite) {
-        launchSlashCommandFlowSuspendable(invite) {
+    private fun handleInviteSlashCommand(room: Room, invite: ParsedCommand.Invite) {
+        launchSlashCommandFlowSuspendable(room, invite) {
             room.membershipService().invite(invite.userId, invite.reason)
         }
     }
 
-    private fun handleInvite3pidSlashCommand(invite: ParsedCommand.Invite3Pid) {
-        launchSlashCommandFlowSuspendable(invite) {
+    private fun handleInvite3pidSlashCommand(room: Room, invite: ParsedCommand.Invite3Pid) {
+        launchSlashCommandFlowSuspendable(room, invite) {
             room.membershipService().invite3pid(invite.threePid)
         }
     }
 
-    private fun handleSetUserPowerLevel(setUserPowerLevel: ParsedCommand.SetUserPowerLevel) {
+    private fun handleSetUserPowerLevel(room: Room, setUserPowerLevel: ParsedCommand.SetUserPowerLevel) {
         val newPowerLevelsContent = room.getStateEvent(EventType.STATE_ROOM_POWER_LEVELS, QueryStringValue.IsEmpty)
                 ?.content
                 ?.toModel<PowerLevelsContent>()
@@ -689,19 +770,19 @@ class MessageComposerViewModel @AssistedInject constructor(
                 ?.toContent()
                 ?: return
 
-        launchSlashCommandFlowSuspendable(setUserPowerLevel) {
+        launchSlashCommandFlowSuspendable(room, setUserPowerLevel) {
             room.stateService().sendStateEvent(EventType.STATE_ROOM_POWER_LEVELS, stateKey = "", newPowerLevelsContent)
         }
     }
 
-    private fun handleChangeDisplayNameSlashCommand(changeDisplayName: ParsedCommand.ChangeDisplayName) {
-        launchSlashCommandFlowSuspendable(changeDisplayName) {
+    private fun handleChangeDisplayNameSlashCommand(room: Room, changeDisplayName: ParsedCommand.ChangeDisplayName) {
+        launchSlashCommandFlowSuspendable(room, changeDisplayName) {
             session.profileService().setDisplayName(session.myUserId, changeDisplayName.displayName)
         }
     }
 
-    private fun handlePartSlashCommand(command: ParsedCommand.PartRoom) {
-        launchSlashCommandFlowSuspendable(command) {
+    private fun handlePartSlashCommand(room: Room, command: ParsedCommand.PartRoom) {
+        launchSlashCommandFlowSuspendable(room, command) {
             if (command.roomAlias == null) {
                 // Leave the current room
                 room
@@ -716,39 +797,39 @@ class MessageComposerViewModel @AssistedInject constructor(
         }
     }
 
-    private fun handleRemoveSlashCommand(removeUser: ParsedCommand.RemoveUser) {
-        launchSlashCommandFlowSuspendable(removeUser) {
+    private fun handleRemoveSlashCommand(room: Room, removeUser: ParsedCommand.RemoveUser) {
+        launchSlashCommandFlowSuspendable(room, removeUser) {
             room.membershipService().remove(removeUser.userId, removeUser.reason)
         }
     }
 
-    private fun handleBanSlashCommand(ban: ParsedCommand.BanUser) {
-        launchSlashCommandFlowSuspendable(ban) {
+    private fun handleBanSlashCommand(room: Room, ban: ParsedCommand.BanUser) {
+        launchSlashCommandFlowSuspendable(room, ban) {
             room.membershipService().ban(ban.userId, ban.reason)
         }
     }
 
-    private fun handleUnbanSlashCommand(unban: ParsedCommand.UnbanUser) {
-        launchSlashCommandFlowSuspendable(unban) {
+    private fun handleUnbanSlashCommand(room: Room, unban: ParsedCommand.UnbanUser) {
+        launchSlashCommandFlowSuspendable(room, unban) {
             room.membershipService().unban(unban.userId, unban.reason)
         }
     }
 
-    private fun handleChangeRoomNameSlashCommand(changeRoomName: ParsedCommand.ChangeRoomName) {
-        launchSlashCommandFlowSuspendable(changeRoomName) {
+    private fun handleChangeRoomNameSlashCommand(room: Room, changeRoomName: ParsedCommand.ChangeRoomName) {
+        launchSlashCommandFlowSuspendable(room, changeRoomName) {
             room.stateService().updateName(changeRoomName.name)
         }
     }
 
-    private fun getMyRoomMemberContent(): RoomMemberContent? {
+    private fun getMyRoomMemberContent(room: Room): RoomMemberContent? {
         return room.getStateEvent(EventType.STATE_ROOM_MEMBER, QueryStringValue.Equals(session.myUserId))
                 ?.content
                 ?.toModel<RoomMemberContent>()
     }
 
-    private fun handleChangeDisplayNameForRoomSlashCommand(changeDisplayName: ParsedCommand.ChangeDisplayNameForRoom) {
-        launchSlashCommandFlowSuspendable(changeDisplayName) {
-            getMyRoomMemberContent()
+    private fun handleChangeDisplayNameForRoomSlashCommand(room: Room, changeDisplayName: ParsedCommand.ChangeDisplayNameForRoom) {
+        launchSlashCommandFlowSuspendable(room, changeDisplayName) {
+            getMyRoomMemberContent(room)
                     ?.copy(displayName = changeDisplayName.displayName)
                     ?.toContent()
                     ?.let {
@@ -757,15 +838,15 @@ class MessageComposerViewModel @AssistedInject constructor(
         }
     }
 
-    private fun handleChangeRoomAvatarSlashCommand(changeAvatar: ParsedCommand.ChangeRoomAvatar) {
-        launchSlashCommandFlowSuspendable(changeAvatar) {
+    private fun handleChangeRoomAvatarSlashCommand(room: Room, changeAvatar: ParsedCommand.ChangeRoomAvatar) {
+        launchSlashCommandFlowSuspendable(room, changeAvatar) {
             room.stateService().sendStateEvent(EventType.STATE_ROOM_AVATAR, stateKey = "", RoomAvatarContent(changeAvatar.url).toContent())
         }
     }
 
-    private fun handleChangeAvatarForRoomSlashCommand(changeAvatar: ParsedCommand.ChangeAvatarForRoom) {
-        launchSlashCommandFlowSuspendable(changeAvatar) {
-            getMyRoomMemberContent()
+    private fun handleChangeAvatarForRoomSlashCommand(room: Room, changeAvatar: ParsedCommand.ChangeAvatarForRoom) {
+        launchSlashCommandFlowSuspendable(room, changeAvatar) {
+            getMyRoomMemberContent(room)
                     ?.copy(avatarUrl = changeAvatar.url)
                     ?.toContent()
                     ?.let {
@@ -774,8 +855,8 @@ class MessageComposerViewModel @AssistedInject constructor(
         }
     }
 
-    private fun handleIgnoreSlashCommand(ignore: ParsedCommand.IgnoreUser) {
-        launchSlashCommandFlowSuspendable(ignore) {
+    private fun handleIgnoreSlashCommand(room: Room, ignore: ParsedCommand.IgnoreUser) {
+        launchSlashCommandFlowSuspendable(room, ignore) {
             session.userService().ignoreUserIds(listOf(ignore.userId))
         }
     }
@@ -784,15 +865,15 @@ class MessageComposerViewModel @AssistedInject constructor(
         _viewEvents.post(MessageComposerViewEvents.SlashCommandConfirmationRequest(unignore))
     }
 
-    private fun handleSlashCommandConfirmed(action: MessageComposerAction.SlashCommandConfirmed) {
+    private fun handleSlashCommandConfirmed(room: Room, action: MessageComposerAction.SlashCommandConfirmed) {
         when (action.parsedCommand) {
-            is ParsedCommand.UnignoreUser -> handleUnignoreSlashCommandConfirmed(action.parsedCommand)
+            is ParsedCommand.UnignoreUser -> handleUnignoreSlashCommandConfirmed(room, action.parsedCommand)
             else -> TODO("Not handled yet")
         }
     }
 
-    private fun handleUnignoreSlashCommandConfirmed(unignore: ParsedCommand.UnignoreUser) {
-        launchSlashCommandFlowSuspendable(unignore) {
+    private fun handleUnignoreSlashCommandConfirmed(room: Room, unignore: ParsedCommand.UnignoreUser) {
+        launchSlashCommandFlowSuspendable(room, unignore) {
             session.userService().unIgnoreUserIds(listOf(unignore.userId))
         }
     }
@@ -801,7 +882,7 @@ class MessageComposerViewModel @AssistedInject constructor(
         _viewEvents.post(MessageComposerViewEvents.OpenRoomMemberProfile(whois.userId))
     }
 
-    private fun sendPrefixedMessage(prefix: String, message: CharSequence, rootThreadEventId: String?) {
+    private fun sendPrefixedMessage(room: Room, prefix: String, message: CharSequence, rootThreadEventId: String?) {
         val sequence = buildString {
             append(prefix)
             if (message.isNotEmpty()) {
@@ -817,7 +898,7 @@ class MessageComposerViewModel @AssistedInject constructor(
     /**
      * Convert a send mode to a draft and save the draft.
      */
-    private fun handleSaveTextDraft(draft: String) = withState {
+    private fun handleSaveTextDraft(room: Room, draft: String) = withState {
         session.coroutineScope.launch {
             when {
                 it.sendMode is SendMode.Regular && !it.sendMode.fromSharing -> {
@@ -840,15 +921,21 @@ class MessageComposerViewModel @AssistedInject constructor(
         }
     }
 
-    private fun handleStartRecordingVoiceMessage() {
-        try {
-            audioMessageHelper.startRecording(room.roomId)
-        } catch (failure: Throwable) {
-            _viewEvents.post(MessageComposerViewEvents.VoicePlaybackOrRecordingFailure(failure))
+    private fun handleStartRecordingVoiceMessage(room: Room) {
+        val voiceBroadcastState = withState(this) { it.voiceBroadcastState }
+        if (voiceBroadcastState != null && voiceBroadcastState != VoiceBroadcastState.STOPPED) {
+            _viewEvents.post(MessageComposerViewEvents.VoicePlaybackOrRecordingFailure(VoiceFailure.VoiceBroadcastInProgress))
+        } else {
+            try {
+                audioMessageHelper.startRecording(room.roomId)
+                setState { copy(voiceRecordingUiState = VoiceMessageRecorderView.RecordingUiState.Recording(clock.epochMillis())) }
+            } catch (failure: Throwable) {
+                _viewEvents.post(MessageComposerViewEvents.VoicePlaybackOrRecordingFailure(failure))
+            }
         }
     }
 
-    private fun handleEndRecordingVoiceMessage(isCancelled: Boolean, rootThreadEventId: String? = null) {
+    private fun handleEndRecordingVoiceMessage(room: Room, isCancelled: Boolean, rootThreadEventId: String? = null) {
         audioMessageHelper.stopPlayback()
         if (isCancelled) {
             audioMessageHelper.deleteRecording()
@@ -866,7 +953,7 @@ class MessageComposerViewModel @AssistedInject constructor(
                 }
             }
         }
-        handleEnterRegularMode(MessageComposerAction.EnterRegularMode(text = "", fromSharing = false))
+        handleEnterRegularMode(MessageComposerAction.EnterRegularMode(fromSharing = false))
     }
 
     private fun handlePlayOrPauseVoicePlayback(action: MessageComposerAction.PlayOrPauseVoicePlayback) {
@@ -891,12 +978,12 @@ class MessageComposerViewModel @AssistedInject constructor(
     }
 
     fun endAllVoiceActions(deleteRecord: Boolean = true) {
-        audioMessageHelper.clearTracker()
+        audioMessageHelper.stopTracking()
         audioMessageHelper.stopAllVoiceActions(deleteRecord)
     }
 
-    private fun handleInitializeVoiceRecorder(attachmentData: ContentAttachmentData) {
-        audioMessageHelper.initializeRecorder(attachmentData)
+    private fun handleInitializeVoiceRecorder(room: Room, attachmentData: ContentAttachmentData) {
+        audioMessageHelper.initializeRecorder(room.roomId, attachmentData)
         setState { copy(voiceRecordingUiState = VoiceMessageRecorderView.RecordingUiState.Draft) }
     }
 
@@ -916,9 +1003,11 @@ class MessageComposerViewModel @AssistedInject constructor(
         audioMessageHelper.movePlaybackTo(action.eventId, action.percentage, action.duration)
     }
 
-    private fun handleEntersBackground(composerText: String) {
+    private fun handleEntersBackground(room: Room, composerText: String) {
         // Always stop all voice actions. It may be playing in timeline or active recording
         val playingAudioContent = audioMessageHelper.stopAllVoiceActions(deleteRecord = false)
+        // TODO remove this when there will be a listening indicator outside of the timeline
+        voiceBroadcastHelper.pausePlayback()
 
         val isVoiceRecording = com.airbnb.mvrx.withState(this) { it.isVoiceRecording }
         if (isVoiceRecording) {
@@ -930,22 +1019,30 @@ class MessageComposerViewModel @AssistedInject constructor(
                 }
             }
         } else {
-            handleSaveTextDraft(draft = composerText)
+            handleSaveTextDraft(room = room, draft = composerText)
         }
     }
 
-    private fun launchSlashCommandFlowSuspendable(parsedCommand: ParsedCommand, block: suspend () -> Unit) {
+    private fun handleInsertUserDisplayName(action: MessageComposerAction.InsertUserDisplayName) {
+        _viewEvents.post(MessageComposerViewEvents.InsertUserDisplayName(action.userId))
+    }
+
+    private fun launchSlashCommandFlowSuspendable(room: Room, parsedCommand: ParsedCommand, block: suspend () -> Unit) {
         _viewEvents.post(MessageComposerViewEvents.SlashCommandLoading)
         viewModelScope.launch {
             val event = try {
                 block()
-                popDraft()
+                popDraft(room)
                 MessageComposerViewEvents.SlashCommandResultOk(parsedCommand)
             } catch (failure: Throwable) {
                 MessageComposerViewEvents.SlashCommandResultError(failure)
             }
             _viewEvents.post(event)
         }
+    }
+
+    private fun onRoomError() = setState {
+        copy(isRoomError = true)
     }
 
     @AssistedFactory

@@ -542,7 +542,7 @@
     <string name="encryption_export_room_keys">יצא מפתחות חדר</string>
     <string name="encryption_export_e2e_room_keys">ייצא מפתחות חדר E2E</string>
     <string name="encryption_information_device_key">מזהה מפתח</string>
-    <string name="encryption_information_device_id">מזהה מושב</string>
+    <string name="device_manager_session_details_session_id">מזהה מושב</string>
     <string name="encryption_information_device_name">שם ציבורי</string>
     <string name="encryption_information_decryption_error">שגיאת פענוח</string>
     <string name="settings_theme">ערכת נושא</string>
@@ -861,9 +861,7 @@
     <string name="login_a11y_choose_other">בחר שרת בית מותאם אישית</string>
     <string name="login_a11y_choose_modular">בחר שירותי מטריקס אלמנט</string>
     <string name="login_a11y_choose_matrix_org">בחר matrix.org</string>
-    <string name="login_signup_cancel_confirmation_content">חשבונך טרם נוצר.
-\n
-\nלהפסיק את תהליך ההרשמה\?</string>
+    <string name="login_signup_cancel_confirmation_content">חשבונך טרם נוצר. להפסיק את תהליך ההרשמה\?</string>
     <string name="login_signup_cancel_confirmation_title">אזהרה</string>
     <string name="login_signup_error_user_in_use">שם המשתמש הזה תפוס</string>
     <string name="login_signup_submit">הבא</string>
@@ -1674,8 +1672,6 @@
     </plurals>
     <string name="cross_signing_verify_by_text">אמת ידנית באמצעות טקסט</string>
     <string name="verify_this_session">אמת את הכניסה החדשה שניגשת לחשבונך: %1$s</string>
-    <string name="verify_other_sessions">אמת את כל ההפעלות שלך כדי להבטיח שהחשבון וההודעות שלך בטוחים</string>
-    <string name="review_logins">בדוק היכן נכנסת</string>
     <string name="encrypted_unverified">מוצפן על ידי מכשיר לא מאומת</string>
     <string name="unencrypted">לא מוצפן</string>
     <string name="default_message_emote_snow">שולח שלג ❄️</string>
@@ -2138,7 +2134,6 @@
     <string name="end_poll_confirmation_approve_button">סוף המשאל</string>
     <string name="end_poll_confirmation_description">פעולה זו תעצור את האפשרות להצביע ותציג את תוצאות המשאל.</string>
     <string name="end_poll_confirmation_title">סוף המשאל\?</string>
-    <string name="a11y_poll_winner_option">אפשרות הזוכה</string>
     <string name="poll_end_action">סוף המשאל</string>
     <string name="create_poll_empty_question_error">שאלה לא יכולה להיות ריקה</string>
     <string name="create_poll_button">צור משאל</string>
@@ -2304,7 +2299,7 @@
     <string name="ftue_auth_use_case_option_three">קהילות</string>
     <string name="ftue_auth_use_case_option_two">צוותים</string>
     <string name="ftue_auth_use_case_option_one">חברים ומשפחה</string>
-    <string name="ftue_auth_use_case_subtitle">נעזור לך להתחבר.</string>
+    <string name="ftue_auth_use_case_subtitle">נעזור לך להתחבר</string>
     <string name="ftue_auth_use_case_title">עם מי תדברו הכי הרבה\?</string>
     <string name="ftue_auth_carousel_encrypted_body">מוצפן מקצה לקצה ואין צורך במספר טלפון. ללא פרסומות או עיבוד נתונים.</string>
     <string name="ftue_auth_carousel_control_body">בחר היכן השיחות שלך נשמרות, נותן לך שליטה ועצמאות. מחובר דרך Matrix.</string>

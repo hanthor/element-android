@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.detail.timeline.helper
@@ -50,16 +41,11 @@ class AudioMessagePlaybackTracker @Inject constructor() {
         listeners.remove(id)
     }
 
-    fun pauseAllPlaybacks() {
-        listeners.keys.forEach { key ->
-            pausePlayback(key)
+    fun unregisterListeners() {
+        listeners.forEach {
+            it.value.onUpdate(Listener.State.Idle)
         }
-    }
-
-    fun makeAllPlaybacksIdle() {
-        listeners.keys.forEach { key ->
-            setState(key, Listener.State.Idle)
-        }
+        listeners.clear()
     }
 
     /**
@@ -75,8 +61,8 @@ class AudioMessagePlaybackTracker @Inject constructor() {
     }
 
     fun startPlayback(id: String) {
-        val currentPlaybackTime = getPlaybackTime(id)
-        val currentPercentage = getPercentage(id)
+        val currentPlaybackTime = getPlaybackTime(id) ?: 0
+        val currentPercentage = getPercentage(id) ?: 0f
         val currentState = Listener.State.Playing(currentPlaybackTime, currentPercentage)
         setState(id, currentState)
         // Pause any active playback
@@ -92,16 +78,28 @@ class AudioMessagePlaybackTracker @Inject constructor() {
                 }
     }
 
+    fun pauseAllPlaybacks() {
+        listeners.keys.forEach(::pausePlayback)
+    }
+
     fun pausePlayback(id: String) {
-        if (getPlaybackState(id) is Listener.State.Playing) {
-            val currentPlaybackTime = getPlaybackTime(id)
-            val currentPercentage = getPercentage(id)
+        val state = getPlaybackState(id)
+        if (state is Listener.State.Playing) {
+            val currentPlaybackTime = state.playbackTime
+            val currentPercentage = state.percentage
             setState(id, Listener.State.Paused(currentPlaybackTime, currentPercentage))
         }
     }
 
-    fun stopPlayback(id: String) {
-        setState(id, Listener.State.Idle)
+    fun stopPlaybackOrRecorder(id: String) {
+        val state = getPlaybackState(id)
+        if (state !is Listener.State.Error) {
+            setState(id, Listener.State.Idle)
+        }
+    }
+
+    fun onError(id: String, error: Throwable) {
+        setState(id, Listener.State.Error(error))
     }
 
     fun updatePlayingAtPlaybackTime(id: String, time: Int, percentage: Float) {
@@ -118,42 +116,39 @@ class AudioMessagePlaybackTracker @Inject constructor() {
 
     fun getPlaybackState(id: String) = states[id]
 
-    fun getPlaybackTime(id: String): Int {
+    fun getPlaybackTime(id: String): Int? {
         return when (val state = states[id]) {
             is Listener.State.Playing -> state.playbackTime
             is Listener.State.Paused -> state.playbackTime
-            /* Listener.State.Idle, */
-            else -> 0
+            is Listener.State.Recording,
+            is Listener.State.Error,
+            Listener.State.Idle,
+            null -> null
         }
     }
 
-    private fun getPercentage(id: String): Float {
+    fun getPercentage(id: String): Float? {
         return when (val state = states[id]) {
             is Listener.State.Playing -> state.percentage
             is Listener.State.Paused -> state.percentage
-            /* Listener.State.Idle, */
-            else -> 0f
+            is Listener.State.Recording,
+            is Listener.State.Error,
+            Listener.State.Idle,
+            null -> null
         }
-    }
-
-    fun clear() {
-        listeners.forEach {
-            it.value.onUpdate(Listener.State.Idle)
-        }
-        listeners.clear()
-        states.clear()
     }
 
     companion object {
         const val RECORDING_ID = "RECORDING_ID"
     }
 
-    interface Listener {
+    fun interface Listener {
 
         fun onUpdate(state: State)
 
         sealed class State {
             object Idle : State()
+            data class Error(val failure: Throwable) : State()
             data class Playing(val playbackTime: Int, val percentage: Float) : State()
             data class Paused(val playbackTime: Int, val percentage: Float) : State()
             data class Recording(val amplitudeList: List<Int>) : State()

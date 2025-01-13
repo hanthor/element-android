@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.detail
@@ -41,7 +32,7 @@ sealed class RoomDetailViewEvents : VectorViewEvents {
 
     data class OpenRoom(val roomId: String, val closeCurrentRoom: Boolean = false) : RoomDetailViewEvents()
 
-    data class NavigateToEvent(val eventId: String) : RoomDetailViewEvents()
+    data class NavigateToEvent(val eventId: String, val isFirstUnreadEvent: Boolean) : RoomDetailViewEvents()
     data class JoinJitsiConference(val widget: Widget, val withVideo: Boolean) : RoomDetailViewEvents()
     object LeaveJitsiConference : RoomDetailViewEvents()
 
@@ -51,7 +42,7 @@ sealed class RoomDetailViewEvents : VectorViewEvents {
     object OpenRoomProfile : RoomDetailViewEvents()
     data class ShowRoomAvatarFullScreen(val matrixItem: MatrixItem?, val view: View?) : RoomDetailViewEvents()
 
-    object ShowWaitingView : RoomDetailViewEvents()
+    data class ShowWaitingView(val text: String? = null) : RoomDetailViewEvents()
     object HideWaitingView : RoomDetailViewEvents()
 
     data class DownloadFileState(
@@ -65,11 +56,17 @@ sealed class RoomDetailViewEvents : VectorViewEvents {
             val mimeType: String?
     ) : RoomDetailViewEvents()
 
+    data class RevokeFilePermission(
+            val uri: Uri
+    ) : RoomDetailViewEvents()
+
     data class DisplayAndAcceptCall(val call: WebRtcCall) : RoomDetailViewEvents()
 
     object DisplayPromptForIntegrationManager : RoomDetailViewEvents()
 
     object DisplayEnableIntegrationsWarning : RoomDetailViewEvents()
+
+    object DisplayPromptToStopVoiceBroadcast : RoomDetailViewEvents()
 
     data class OpenStickerPicker(val widget: Widget) : RoomDetailViewEvents()
 

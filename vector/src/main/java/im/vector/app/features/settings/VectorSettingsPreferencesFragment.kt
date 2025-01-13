@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.settings
@@ -35,6 +26,7 @@ import im.vector.app.features.VectorFeatures
 import im.vector.app.features.analytics.plan.MobileScreen
 import im.vector.app.features.settings.font.FontScaleSettingActivity
 import im.vector.app.features.themes.ThemeUtils
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.launch
 import org.matrix.android.sdk.api.session.presence.model.PresenceEnum
 import javax.inject.Inject
@@ -46,8 +38,9 @@ class VectorSettingsPreferencesFragment :
     @Inject lateinit var vectorPreferences: VectorPreferences
     @Inject lateinit var fontScalePreferences: FontScalePreferences
     @Inject lateinit var vectorFeatures: VectorFeatures
+    @Inject lateinit var vectorLocale: VectorLocale
 
-    override var titleRes = R.string.settings_preferences
+    override var titleRes = CommonStrings.settings_preferences
     override val preferenceXmlRes = R.xml.vector_settings_preferences
 
     private val selectedLanguagePreference by lazy {
@@ -102,7 +95,8 @@ class VectorSettingsPreferencesFragment :
         }
 
         findPreference<Preference>(VectorPreferences.SETTINGS_PREF_SPACE_CATEGORY)!!.let { pref ->
-            pref.isVisible = !vectorFeatures.isNewAppLayoutEnabled()
+            pref.isVisible = !vectorPreferences.isNewAppLayoutEnabled()
+            pref.isEnabled = !vectorPreferences.isNewAppLayoutEnabled()
         }
 
         // Url preview
@@ -153,7 +147,7 @@ class VectorSettingsPreferencesFragment :
                 context?.let { context: Context ->
                     MaterialAlertDialogBuilder(context)
                             .setSingleChoiceItems(
-                                    R.array.media_saving_choice,
+                                    im.vector.lib.strings.R.array.media_saving_choice,
                                     vectorPreferences.getSelectedMediasSavingPeriod()
                             ) { d, n ->
                                 vectorPreferences.setSelectedMediasSavingPeriod(n)
@@ -183,10 +177,10 @@ class VectorSettingsPreferencesFragment :
     private fun updateTakePhotoOrVideoPreferenceSummary() {
         takePhotoOrVideoPreference.summary = getString(
                 when (vectorPreferences.getTakePhotoVideoMode()) {
-                    VectorPreferences.TAKE_PHOTO_VIDEO_MODE_PHOTO -> R.string.option_take_photo
-                    VectorPreferences.TAKE_PHOTO_VIDEO_MODE_VIDEO -> R.string.option_take_video
+                    VectorPreferences.TAKE_PHOTO_VIDEO_MODE_PHOTO -> CommonStrings.option_take_photo
+                    VectorPreferences.TAKE_PHOTO_VIDEO_MODE_VIDEO -> CommonStrings.option_take_video
                     /* VectorPreferences.TAKE_PHOTO_VIDEO_MODE_ALWAYS_ASK */
-                    else -> R.string.option_always_ask
+                    else -> CommonStrings.option_always_ask
                 }
         )
     }
@@ -197,7 +191,7 @@ class VectorSettingsPreferencesFragment :
 
     private fun setUserInterfacePreferences() {
         // Selected language
-        selectedLanguagePreference.summary = VectorLocale.localeToLocalisedString(VectorLocale.applicationLocale)
+        selectedLanguagePreference.summary = vectorLocale.localeToLocalisedString(vectorLocale.applicationLocale)
 
         // Text size
         textSizePreference.summary = getString(fontScalePreferences.getResolvedFontScaleValue().nameResId)

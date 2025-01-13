@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.settings
@@ -29,6 +20,7 @@ import im.vector.app.core.utils.openAppSettingsPage
 import im.vector.app.core.utils.openUrlInChromeCustomTab
 import im.vector.app.features.analytics.plan.MobileScreen
 import im.vector.app.features.version.VersionProvider
+import im.vector.lib.strings.CommonStrings
 import org.matrix.android.sdk.api.Matrix
 import javax.inject.Inject
 
@@ -39,7 +31,7 @@ class VectorSettingsHelpAboutFragment :
     @Inject lateinit var versionProvider: VersionProvider
     @Inject lateinit var buildMeta: BuildMeta
 
-    override var titleRes = R.string.preference_root_help_about
+    override var titleRes = CommonStrings.preference_root_help_about
     override val preferenceXmlRes = R.xml.vector_settings_help_about
 
     private val firstThrottler = FirstThrottler(1000)
@@ -69,10 +61,12 @@ class VectorSettingsHelpAboutFragment :
         // application version
         findPreference<VectorPreference>(VectorPreferences.SETTINGS_VERSION_PREFERENCE_KEY)!!.let {
             it.summary = buildString {
-                append(versionProvider.getVersion(longFormat = false, useBuildNumber = true))
+                append(versionProvider.getVersion(longFormat = false))
                 if (buildMeta.isDebug) {
                     append(" ")
                     append(buildMeta.gitBranchName)
+                    append(" ")
+                    append(buildMeta.gitRevision)
                 }
             }
 
@@ -93,8 +87,8 @@ class VectorSettingsHelpAboutFragment :
         }
 
         // olm version
-        findPreference<VectorPreference>(VectorPreferences.SETTINGS_OLM_VERSION_PREFERENCE_KEY)!!
-                .summary = session.cryptoService().getCryptoVersion(requireContext(), false)
+        findPreference<VectorPreference>(VectorPreferences.SETTINGS_CRYPTO_VERSION_PREFERENCE_KEY)!!
+                .summary = Matrix.getCryptoVersion(true)
     }
 
     companion object {

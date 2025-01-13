@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.roomprofile.members
@@ -37,7 +28,8 @@ import kotlinx.coroutines.launch
 import org.matrix.android.sdk.api.extensions.orFalse
 import org.matrix.android.sdk.api.query.QueryStringValue
 import org.matrix.android.sdk.api.session.Session
-import org.matrix.android.sdk.api.session.crypto.model.RoomEncryptionTrustLevel
+import org.matrix.android.sdk.api.session.crypto.model.CryptoDeviceInfo
+import org.matrix.android.sdk.api.session.crypto.model.UserVerificationLevel
 import org.matrix.android.sdk.api.session.events.model.EventType
 import org.matrix.android.sdk.api.session.events.model.toModel
 import org.matrix.android.sdk.api.session.getRoom
@@ -116,20 +108,36 @@ class RoomMemberListViewModel @AssistedInject constructor(
                                 .map { deviceList ->
                                     // If any key change, emit the userIds list
                                     deviceList.groupBy { it.userId }.mapValues {
-                                        val allDeviceTrusted = it.value.fold(it.value.isNotEmpty()) { prev, next ->
-                                            prev && next.trustLevel?.isCrossSigningVerified().orFalse()
-                                        }
-                                        if (session.cryptoService().crossSigningService().getUserCrossSigningKeys(it.key)?.isTrusted().orFalse()) {
-                                            if (allDeviceTrusted) RoomEncryptionTrustLevel.Trusted else RoomEncryptionTrustLevel.Warning
-                                        } else {
-                                            RoomEncryptionTrustLevel.Default
-                                        }
+                                        getUserTrustLevel(it.key, it.value)
                                     }
                                 }
                     }
                     .execute { async ->
                         copy(trustLevelMap = async)
                     }
+        }
+    }
+
+    private suspend fun getUserTrustLevel(userId: String, devices: List<CryptoDeviceInfo>): UserVerificationLevel {
+        val allDeviceTrusted = devices.fold(devices.isNotEmpty()) { prev, next ->
+            prev && next.trustLevel?.isCrossSigningVerified().orFalse()
+        }
+        val mxCrossSigningInfo = session.cryptoService().crossSigningService().getUserCrossSigningKeys(userId)
+        return when {
+            mxCrossSigningInfo == null -> {
+                UserVerificationLevel.WAS_NEVER_VERIFIED
+            }
+            mxCrossSigningInfo.isTrusted() -> {
+                if (allDeviceTrusted) UserVerificationLevel.VERIFIED_ALL_DEVICES_TRUSTED
+                else UserVerificationLevel.VERIFIED_WITH_DEVICES_UNTRUSTED
+            }
+            else -> {
+                if (mxCrossSigningInfo.wasTrustedOnce) {
+                    UserVerificationLevel.UNVERIFIED_BUT_WAS_PREVIOUSLY
+                } else {
+                    UserVerificationLevel.WAS_NEVER_VERIFIED
+                }
+            }
         }
     }
 

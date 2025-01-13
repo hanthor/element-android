@@ -274,9 +274,9 @@
     <string name="action_join">Rejoindre</string>
     <string name="action_reject">Rejeter</string>
     <string name="room_participants_leave_prompt_title">Quitter le salon</string>
-    <string name="room_participants_header_direct_chats">Conversations privées</string>
+    <string name="room_participants_header_direct_chats">Messages directs</string>
     <string name="room_participants_action_invite">Inviter</string>
-    <string name="room_participants_action_ban">Bannir</string>
+    <string name="room_participants_action_ban">Interdire l’accès au salon (définitif)</string>
     <string name="room_participants_action_unban">Révoquer le bannissement</string>
     <string name="room_participants_action_mention">Mentionner</string>
     <string name="ssl_trust">Faire confiance</string>
@@ -346,7 +346,7 @@
     <string name="room_settings_unset_main_address">Désactiver comme adresse principale</string>
     <string name="encryption_information_decryption_error">Erreur de déchiffrement</string>
     <string name="encryption_information_device_name">Nom public</string>
-    <string name="encryption_information_device_id">Identifiant de session</string>
+    <string name="device_manager_session_details_session_id">Identifiant de session</string>
     <string name="encryption_information_device_key">Clé de la session</string>
     <string name="encryption_export_e2e_room_keys">Exporter les clés E2E des salons</string>
     <string name="encryption_export_room_keys">Exporter les clés des salons</string>
@@ -473,7 +473,7 @@
     <string name="loading">Chargement…</string>
     <string name="start_voice_call_prompt_msg">Voulez-vous vraiment engager un nouvel appel audio \?</string>
     <string name="start_video_call_prompt_msg">Voulez-vous vraiment engager un nouvel appel vidéo \?</string>
-    <string name="room_participants_ban_prompt_msg">Bannir un utilisateur va l’expulser du salon et l’empêcher de le rejoindre à nouveau.</string>
+    <string name="room_participants_ban_prompt_msg">L’exclusion de l’utilisateur va l’expulser du salon et l’empêcher de le rejoindre à nouveau.</string>
     <string name="room_settings_all_messages">Notification pour chaque message</string>
     <string name="room_settings_add_homescreen_shortcut">Ajouter à l’écran d’accueil</string>
     <string name="settings_inline_url_preview">Aperçu des liens</string>
@@ -579,7 +579,7 @@
     <string name="merged_events_collapse">réduire</string>
     <string name="generic_label_and_value">%1$s : %2$s</string>
     <string name="x_plus">+%d</string>
-    <string name="room_participants_action_remove">Expulser</string>
+    <string name="room_participants_action_remove">Retirer du salon (réversible)</string>
     <string name="settings_inline_url_preview_summary">Afficher un aperçu des liens dans la discussion quand votre serveur d’accueil le permet.</string>
     <string name="settings_send_typing_notifs">Envoyer des notifications de saisie</string>
     <string name="settings_send_typing_notifs_summary">Les autres utilisateurs pourront voir que vous êtes en train d’écrire.</string>
@@ -836,7 +836,7 @@
     <string name="change_room_directory_network">Changer de réseau</string>
     <string name="please_wait">Veuillez patienter…</string>
     <string name="keys_backup_setup_override_backup_prompt_description">On dirait que vous avez déjà configuré une sauvegarde de clé depuis une autre session. Voulez-vous la remplacer par celle que vous êtes en train de créer \?</string>
-    <string name="room_list_people_empty_body">Vos conversations privées seront affichées ici. Appuyez sur « + » en bas à droite pour en démarrer une.</string>
+    <string name="room_list_people_empty_body">Vos messages directs seront affichés ici. Appuyez sur « + » en bas à droite pour en démarrer une.</string>
     <string name="room_list_rooms_empty_title">Salons</string>
     <string name="room_list_rooms_empty_body">Vos salons seront affichés ici. Appuyez sur le « + » en bas à droite pour trouver ceux existant ou en créer de nouveaux.</string>
     <string name="title_activity_emoji_reaction_picker">Réactions</string>
@@ -852,7 +852,7 @@
     <string name="action_change">Changer</string>
     <string name="room_preview_no_preview">Impossible d’avoir un aperçu de ce salon</string>
     <string name="fab_menu_create_room">Salons</string>
-    <string name="fab_menu_create_chat">Conversations privées</string>
+    <string name="fab_menu_create_chat">Messages directs</string>
     <string name="create_room_action_create">CRÉER</string>
     <string name="create_room_name_hint">Nom</string>
     <string name="create_room_public_title">Public</string>
@@ -869,10 +869,10 @@
     <string name="settings_push_rules">Règles de notification</string>
     <string name="settings_push_rules_no_rules">Aucune règle de notification définie</string>
     <string name="settings_push_gateway_no_pushers">Aucune passerelle de notification enregistrée</string>
-    <string name="push_gateway_item_app_id">app_id :</string>
-    <string name="push_gateway_item_push_key">push_key :</string>
-    <string name="push_gateway_item_app_display_name">app_display_name :</string>
-    <string name="push_gateway_item_device_name">session_name :</string>
+    <string name="push_gateway_item_app_id">App ID :</string>
+    <string name="push_gateway_item_push_key">Clé Push :</string>
+    <string name="push_gateway_item_app_display_name">Nom d’affichage de l’application :</string>
+    <string name="push_gateway_item_device_name">Nom d’affichage de la session :</string>
     <string name="push_gateway_item_url">URL :</string>
     <string name="push_gateway_item_format">Format :</string>
     <string name="preference_voice_and_video">Voix et vidéo</string>
@@ -884,7 +884,7 @@
     <string name="send_suggestion_sent">Merci, la suggestion a bien été envoyée</string>
     <string name="send_suggestion_failed">Échec d’envoi de la suggestion (%s)</string>
     <string name="settings_labs_show_hidden_events_in_timeline">Afficher les évènements cachés dans les discussions</string>
-    <string name="bottom_action_people_x">Conversations privées</string>
+    <string name="bottom_action_people_x">Messages directs</string>
     <string name="send_file_step_idle">Attente…</string>
     <string name="send_file_step_encrypting_thumbnail">Chiffrement de la miniature…</string>
     <string name="send_file_step_sending_thumbnail">Envoi de la miniature (%1$s / %2$s)</string>
@@ -934,11 +934,11 @@
     <string name="settings_discovery_identity_server_info">Vous utilisez actuellement %1$s pour découvrir et être découvrable par les contacts existants que vous connaissez.</string>
     <string name="settings_discovery_identity_server_info_none">Vous n’utilisez actuellement aucun serveur d’identité. Pour découvrir et être découvrable par les contacts existants que vous connaissez, configurez-en un ci-dessous.</string>
     <string name="settings_discovery_emails_title">Adresses électronique découvrables</string>
-    <string name="settings_discovery_no_mails">Les options de découverte apparaîtront quand vous aurez ajouté un courriel.</string>
+    <string name="settings_discovery_no_mails">Les options de découverte apparaîtront quand vous aurez ajouté une adresse courriel.</string>
     <string name="settings_discovery_no_msisdn">Les options de découverte apparaîtront quand vous aurez ajouté un numéro de téléphone.</string>
     <string name="settings_discovery_disconnect_identity_server_info">La déconnexion du serveur d’identité signifie que vous ne pourrez plus être découvrable par les autres utilisateurs et que vous ne pourrez plus inviter d’autres personnes par courriel ou par téléphone.</string>
     <string name="settings_discovery_msisdn_title">Numéros de téléphone découvrables</string>
-    <string name="settings_discovery_confirm_mail">Nous vous avons envoyé un courriel de confirmation à %s, consultez vos courriels et cliquez sur le lien de confirmation</string>
+    <string name="settings_discovery_confirm_mail">Nous vous avons envoyé un courriel à %s, consultez vos courriels et cliquez sur le lien de confirmation</string>
     <string name="settings_discovery_enter_identity_server">Renseignez l’URL d’un serveur d’identité</string>
     <string name="settings_discovery_bad_identity_server">Impossible de se connecter au serveur d’identité</string>
     <string name="settings_discovery_please_enter_server">Veuillez renseigner l’URL du serveur d’identité</string>
@@ -1066,7 +1066,7 @@
     <string name="login_registration_not_supported">L’application ne peut pas créer de compte sur ce serveur d’accueil.
 \n
 \nVoulez-vous vous inscrire en utilisant un client web \?</string>
-    <string name="login_login_with_email_error">Ce courriel n’est associé à aucun compte.</string>
+    <string name="login_login_with_email_error">Cette adresse de courriel n’est associée à aucun compte.</string>
     <string name="login_reset_password_on">Réinitialiser le mot de passe sur %1$s</string>
     <string name="login_reset_password_notice">Un courriel de vérification sera envoyé à votre adresse pour confirmer la configuration de votre nouveau mot de passe.</string>
     <string name="login_reset_password_submit">Suivant</string>
@@ -1075,7 +1075,7 @@
     <string name="login_reset_password_warning_title">Attention !</string>
     <string name="login_reset_password_warning_content">Le changement de mot de passe réinitialisera toutes les clés de chiffrement sur toutes vos sessions, rendant l’historique des discussions chiffrées illisible. Configurez la sauvegarde de clés ou exportez vos clés de salon depuis une autre session avant de réinitialiser votre mot de passe.</string>
     <string name="login_reset_password_warning_submit">Poursuivre</string>
-    <string name="login_reset_password_error_not_found">Ce courriel n’est lié à aucun compte</string>
+    <string name="login_reset_password_error_not_found">Ce adresse de courriel n’est liée à aucun compte</string>
     <string name="login_reset_password_mail_confirmation_title">Vérifiez votre boîte de réception</string>
     <string name="login_reset_password_mail_confirmation_notice">Un courriel de vérification a été envoyé à %1$s.</string>
     <string name="login_reset_password_mail_confirmation_notice_2">Touchez le lien pour confirmer votre nouveau mot de passe. Après avoir suivi le lien qu’il contient, cliquez ci-dessous.</string>
@@ -1089,7 +1089,7 @@
 \n
 \nArrêter le processus de changement \?</string>
     <string name="login_set_email_title">Définir l’adresse électronique</string>
-    <string name="login_set_email_notice">Définir une adresse électronique pour récupérer votre compte. Plus tard, vous pourrez éventuellement autoriser des personnes à vous retrouver avec votre adresse électronique.</string>
+    <string name="login_set_email_notice">Définir une adresse de courriel pour récupérer votre compte. Plus tard, vous pourrez éventuellement autoriser des personnes à vous retrouver avec cette adresse.</string>
     <string name="login_set_email_mandatory_hint">Courriel</string>
     <string name="login_set_email_optional_hint">Courriel (facultatif)</string>
     <string name="login_set_email_submit">Suivant</string>
@@ -1410,11 +1410,9 @@
     <string name="external_link_confirmation_message">Le lien %1$s vous emmène sur un autre site : %2$s.
 \n
 \nVoulez-vous vraiment poursuivre \?</string>
-    <string name="create_room_dm_failure">Nous n’avons pas pu créer votre conversation privée. Vérifiez les utilisateurs que vous souhaitez inviter et réessayez.</string>
+    <string name="create_room_dm_failure">Nous n’avons pas pu créer votre message direct. Vérifiez les utilisateurs que vous souhaitez inviter et réessayez.</string>
     <string name="unencrypted">Non chiffré</string>
     <string name="encrypted_unverified">Chiffré par un appareil non vérifié</string>
-    <string name="review_logins">Vérifiez où vous vous êtes connecté</string>
-    <string name="verify_other_sessions">Vérifiez toutes les sessions pour vous assurer que votre compte et vos messages sont en sécurité</string>
     <string name="verify_this_session">Vérifiez la nouvelle connexion accédant à votre compte : %1$s</string>
     <string name="notification_ticker_text_dm">%1$s : %2$s</string>
     <string name="notification_ticker_text_group">%1$s : %2$s %3$s</string>
@@ -1432,7 +1430,7 @@
     <string name="event_redacted">Message supprimé</string>
     <string name="settings_show_redacted">Afficher les messages supprimés</string>
     <string name="settings_show_redacted_summary">Afficher un remplaçant pour les messages supprimés</string>
-    <string name="settings_discovery_confirm_mail_not_clicked">Nous vous avons envoyé un courriel de confirmation à %s, consultez vos courriels et cliquez sur le lien de confirmation</string>
+    <string name="settings_discovery_confirm_mail_not_clicked">Nous vous avons envoyé un courriel à %s, consultez vos courriels et cliquez sur le lien de confirmation</string>
     <string name="settings_text_message_sent_wrong_code">Le code de vérification n’est pas correct.</string>
     <string name="uploads_media_title">MÉDIA</string>
     <string name="uploads_media_no_result">Il n’y a aucun média dans ce salon</string>
@@ -1455,7 +1453,7 @@
     <string name="identity_server_error_outdated_home_server">Cette opération n’est pas possible. Le serveur d’accueil est obsolète.</string>
     <string name="identity_server_error_no_identity_server_configured">Veuillez d’abord configurer un serveur d’identité.</string>
     <string name="identity_server_error_terms_not_signed">Veuillez d’abord accepter les termes du serveur d’identité dans les paramètres.</string>
-    <string name="identity_server_error_bulk_sha256_not_supported">Pour votre vie privée, ${app_name} prend uniquement en charge l’envoi des adresses électronique et des numéros de téléphone hachés.</string>
+    <string name="identity_server_error_bulk_sha256_not_supported">Pour votre vie privée, ${app_name} prend uniquement en charge l’envoi des adresses de courriel et des numéros de téléphone hachés.</string>
     <string name="identity_server_error_binding_error">L’association a échoué.</string>
     <string name="identity_server_error_no_current_binding_error">Il n’y a actuellement aucune association avec cet identifiant.</string>
     <string name="identity_server_set_default_notice">Votre serveur d’accueil (%1$s) propose d’utiliser %2$s comme serveur d’identité</string>
@@ -1572,7 +1570,7 @@
     <string name="settings_security_pin_code_grace_period_summary_off">Le code est requis à l’ouverture de ${app_name}.</string>
     <string name="settings_security_pin_code_grace_period_summary_on">Le code est demandé après 2 minutes d\'inutilisation de ${app_name}.</string>
     <string name="settings_security_pin_code_grace_period_title">Demander le code après 2 minutes</string>
-    <string name="settings_security_pin_code_notifications_summary_off">Afficher uniquement le numéro de messages non-lus dans une simple notification.</string>
+    <string name="settings_security_pin_code_notifications_summary_off">Afficher uniquement le numéro de messages non lus dans une simple notification.</string>
     <string name="settings_security_pin_code_notifications_summary_on">Afficher les détails comme les noms des salons et le contenu du message.</string>
     <string name="settings_security_pin_code_notifications_title">Afficher le contenu dans les notifications</string>
     <string name="settings_security_pin_code_use_biometrics_summary_off">Le code est la seule façon de déverrouiller ${app_name}.</string>
@@ -1609,7 +1607,7 @@
         <item quantity="one">%1$s, %2$s et %3$d autre ont lu</item>
         <item quantity="other">%1$s, %2$s et %3$d autres ont lu</item>
     </plurals>
-    <string name="labs_show_unread_notifications_as_tab">Ajouter un onglet dédié aux notifications non-lues sur l’écran principal.</string>
+    <string name="labs_show_unread_notifications_as_tab">Ajouter un onglet dédié aux notifications non lues sur l’écran principal.</string>
     <string name="create_room_federation_error">Le salon a été créé, mais certaines invitations n’ont pas été envoyées pour la raison suivante :
 \n
 \n%s</string>
@@ -1669,7 +1667,7 @@
     <string name="error_threepid_auth_failed">Assurez-vous d\'avoir cliqué sur le lien envoyé par courriel.</string>
     <string name="settings_remove_three_pid_confirmation_content">Supprimer %s \?</string>
     <string name="settings_phone_numbers">Numéros de téléphone</string>
-    <string name="settings_emails_empty">Aucune adresse électronique n’a été ajoutée à votre compte</string>
+    <string name="settings_emails_empty">Aucune adresse de courriel n’a été ajoutée à votre compte</string>
     <string name="settings_emails">Adresses électroniques</string>
     <string name="settings_phone_number_empty">Aucun numéro de téléphone n’a été ajouté à votre compte</string>
     <string name="search_banned_user_hint">Filtrer les utilisateurs exclus</string>
@@ -1718,12 +1716,12 @@
     <string name="create_room_topic_hint">Sujet</string>
     <string name="create_room_topic_section">Sujet du salon (facultatif)</string>
     <string name="create_room_name_section">Nom du salon</string>
-    <string name="room_member_open_or_create_dm">Conversation privée</string>
+    <string name="room_member_open_or_create_dm">Message direct</string>
     <string name="send_bug_report_include_key_share_history">Inclure l’historique d’échange de clés</string>
     <string name="no_more_results">Plus aucun résultat</string>
     <string name="settings_export_trail">Exporter le rapport d’audit</string>
     <string name="room_created_summary_no_topic_creation_text">%s pour permettre aux gens de connaître le sujet de ce salon.</string>
-    <string name="this_is_the_beginning_of_dm">Ceci est le début de l’historique de votre conversation privée avec %s.</string>
+    <string name="this_is_the_beginning_of_dm">Ceci est le début de l’historique de votre message direct avec %s.</string>
     <string name="this_is_the_beginning_of_room_no_name">Ceci est le début de cette conversation.</string>
     <string name="this_is_the_beginning_of_room">Ceci est le début de %s.</string>
     <string name="room_settings_enable_encryption_no_permission">Vous n\'avez pas le droit d’activer le chiffrement dans ce salon.</string>
@@ -1734,7 +1732,7 @@
     <string name="attachment_viewer_item_x_of_y">%1$d de %2$d</string>
     <string name="settings_discovery_consent_action_give_consent">Autoriser</string>
     <string name="settings_discovery_consent_action_revoke">Révoquer mon autorisation</string>
-    <string name="settings_discovery_consent_notice_on">Vous avez donné votre autorisation pour envoyer des courriels et des numéros de téléphone à ce serveur d’identité pour découvrir d\'autres utilisateurs à partir de vos contacts.</string>
+    <string name="settings_discovery_consent_notice_on">Vous avez donné votre autorisation pour envoyer des adresses de courriel et des numéros de téléphone à ce serveur d’identité pour découvrir d\'autres utilisateurs à partir de vos contacts.</string>
     <string name="settings_discovery_consent_title">Envoyer des courriels et des numéros de téléphone</string>
     <string name="direct_room_user_list_suggestions_title">Suggestions</string>
     <string name="direct_room_user_list_known_title">Utilisateurs connus</string>
@@ -2133,8 +2131,8 @@
     <string name="settings_room_invitations">Les invitations à des salons</string>
     <string name="settings_encrypted_group_messages">Les conversations de groupe chiffrées</string>
     <string name="settings_group_messages">Les conversations de groupe</string>
-    <string name="settings_encrypted_direct_messages">Les conversations privées chiffrées</string>
-    <string name="settings_messages_direct_messages">Les conversations privées</string>
+    <string name="settings_encrypted_direct_messages">Les conversations à deux chiffrées</string>
+    <string name="settings_messages_direct_messages">Les messages directs</string>
     <string name="settings_messages_containing_username">Mon nom d’utilisateur</string>
     <string name="settings_messages_containing_display_name">Mon nom d’affichage</string>
     <string name="settings_notification_notify_me_for">Me notifier pour</string>
@@ -2142,7 +2140,7 @@
     <string name="settings_notification_mentions_and_keywords">Mentions et mots-clés</string>
     <string name="settings_notification_default">Notifications par défaut</string>
     <string name="link_this_email_with_your_account">%s dans les paramètres pour recevoir les invitations directement dans ${app_name}.</string>
-    <string name="link_this_email_settings_link">Lier ce courriel à votre compte</string>
+    <string name="link_this_email_settings_link">Lier cette adresse de courriel à votre compte</string>
     <string name="this_invite_to_this_space_was_sent">Cette invitation à cette espace a été envoyée à %s qui n’est pas associé à votre compte</string>
     <string name="this_invite_to_this_room_was_sent">Cette invitation à ce salon a été envoyée à %s qui n’est pas associé à votre compte</string>
     <string name="all_rooms_youre_in_will_be_shown_in_home">Tous les salons dans lesquels vous vous trouvez seront affichés sur l’Accueil.</string>
@@ -2258,7 +2256,7 @@
     <string name="create_poll_question_title">Question ou sujet du sondage</string>
     <string name="create_poll_title">Créer un sondage</string>
     <string name="attachment_type_poll">Sondage</string>
-    <string name="identity_server_consent_dialog_title_2">Envoyer des courriels et des numéros de téléphone à %s</string>
+    <string name="identity_server_consent_dialog_title_2">Envoyer des adresses de courriel et des numéros de téléphone à %s</string>
     <string name="settings_discovery_consent_notice_off_2">Vos contacts sont personnels et privés. Pour découvrir des utilisateurs à partir de vos contacts, nous avons besoin de votre permission pour envoyer les informations des contacts à votre serveur d’identité.</string>
     <string name="shortcut_disabled_reason_sign_out">La session a été déconnectée !</string>
     <string name="shortcut_disabled_reason_room_left">Le salon a été quitté !</string>
@@ -2272,7 +2270,6 @@
     <string name="end_poll_confirmation_approve_button">Terminer le sondage</string>
     <string name="end_poll_confirmation_description">Cela empêchera les gens de voter et affichera le résultat final du sondage.</string>
     <string name="end_poll_confirmation_title">Terminer ce sondage \?</string>
-    <string name="a11y_poll_winner_option">option gagnante</string>
     <string name="poll_end_action">Terminer le sondage</string>
     <plurals name="poll_total_vote_count_after_ended">
         <item quantity="one">Résultat final sur la base de %1$d vote</item>
@@ -2600,9 +2597,8 @@
 \nCe serveur d’accueil n’a peut-être pas été configuré pour afficher les cartes.</string>
     <string name="a11y_open_settings">Ouvrir les paramètres</string>
     <string name="all_chats">Toutes les conversations</string>
-    <string name="device_manager_settings_active_sessions_show_all">Afficher toutes les sessions (V2, en cours)</string>
-    <string name="settings_sessions_other_description">Pour une meilleure sécurité, vérifiez vos sessions et déconnectez toutes les sessions que vous ne connaissez pas ou que vous n’utilisez plus.</string>
-    <string name="settings_sessions_other_title">Autres sessions</string>
+    <string name="device_manager_sessions_other_description">Pour une meilleure sécurité, vérifiez vos sessions et déconnectez toutes les sessions que vous ne connaissez pas ou que vous n’utilisez plus.</string>
+    <string name="device_manager_sessions_other_title">Autres sessions</string>
     <string name="settings_sessions_list">Sessions</string>
     <string name="a11y_open_spaces">Ouvrir la liste des espaces</string>
     <string name="a11y_create_message">Créer une nouvelle conversation ou salon</string>
@@ -2618,15 +2614,12 @@
     <string name="home_layout_preferences">Préférences de présentation</string>
     <string name="explore_rooms">Parcourir les salons</string>
     <string name="create_room">Créer un salon</string>
-    <string name="start_chat">Commencer une discussion</string>
+    <string name="start_chat">Commencer un message direct</string>
     <string name="device_manager_other_sessions_description_unverified">Non vérifiée · Dernière activité %1$s</string>
     <string name="device_manager_other_sessions_description_verified">Vérifié · Dernière activité %1$s</string>
     <string name="device_manager_other_sessions_view_all">Tout voir (%1$d)</string>
-    <string name="device_manager_header_section_current_session">Cette session</string>
     <string name="device_manager_view_details">Voir les détails</string>
     <string name="device_manager_verify_session">Vérifier la session</string>
-    <string name="device_manager_verification_status_detail_unverified">Vérifiez votre session pour une sécurité renforcée de votre messagerie.</string>
-    <string name="device_manager_verification_status_detail_verified">Votre session est prête pour l’envoi de messages sécurisés.</string>
     <string name="device_manager_verification_status_unverified">Session non vérifiée</string>
     <string name="device_manager_verification_status_verified">Session vérifiée</string>
     <string name="a11y_device_manager_device_type_unknown">Type de périphérique inconnu</string>
@@ -2636,4 +2629,350 @@
     <string name="timeline_error_room_not_found">Désolé, impossible de trouver ce salon.
 \nVeuillez réessayer plus tard.%s</string>
     <string name="invites_title">Invitations</string>
+    <string name="onboarding_new_app_layout_button_try">Essayez</string>
+    <string name="onboarding_new_app_layout_feedback_message">Appuyez en haut à droite pour les options des avis.</string>
+    <string name="onboarding_new_app_layout_feedback_title">Donner mon avis</string>
+    <string name="onboarding_new_app_layout_spaces_message">Accédez à vos espaces (en bas à droite) plus rapidement et facilement qu’avant.</string>
+    <string name="onboarding_new_app_layout_spaces_title">Accéder aux espaces</string>
+    <string name="onboarding_new_app_layout_welcome_message">Pour simplifier Element, les onglets sont désormais facultatifs. Gérez les depuis le menu en haut à droite.</string>
+    <string name="onboarding_new_app_layout_welcome_title">Bienvenu dans une nouvelle vue !</string>
+    <string name="home_empty_no_unreads_message">C\'est ici que vos messages non lus s’afficheront lorsque vous en aurez.</string>
+    <string name="home_empty_no_unreads_title">Rien à signaler.</string>
+    <string name="home_empty_no_rooms_message">La messagerie sécurisée tout-en-un pour les équipes, les amis, et les organisations. Créez une discussion ou rejoignez un salon pour démarrer.</string>
+    <string name="home_empty_no_rooms_title">Bienvenue dans ${app_name},
+\n%s.</string>
+    <string name="home_empty_space_no_rooms_message">Les espaces sont un nouveau moyen de grouper les salons et les gens. Ajoutez un salon, ou créez en un nouveau à l’aide du bouton en bas à droite.</string>
+    <string name="home_empty_space_no_rooms_title">%s
+\na l’air un peu vide.</string>
+    <plurals name="device_manager_inactive_sessions_description">
+        <item quantity="one">Pensez à vous déconnecter des anciennes sessions (%1$d jour ou plus) que vous n’utilisez plus.</item>
+        <item quantity="other">Pensez à vous déconnecter des anciennes sessions (%1$d jours ou plus) que vous n’utilisez plus.</item>
+    </plurals>
+    <string name="device_manager_inactive_sessions_title">Sessions inactives</string>
+    <string name="device_manager_unverified_sessions_description">Vérifier ou déconnecter les sessions non vérifiées.</string>
+    <string name="device_manager_unverified_sessions_title">Sessions non vérifiées</string>
+    <string name="device_manager_header_section_security_recommendations_description">Améliorez la sécurité de votre compte à l’aide de ces recommandations.</string>
+    <string name="device_manager_header_section_security_recommendations_title">Recommandations de sécurité</string>
+    <plurals name="device_manager_other_sessions_description_inactive">
+        <item quantity="one">Inactif depuis %1$d+ jour (%2$s)</item>
+        <item quantity="other">Inactif depuis %1$d+ jours (%2$s)</item>
+    </plurals>
+    <string name="invites_empty_message">C’est l’endroit où se trouveront vos nouvelles requêtes et invitations.</string>
+    <string name="invites_empty_title">Rien de neuf.</string>
+    <string name="space_list_empty_message">Les espaces sont un nouveau moyen de regrouper les salons et les gens. Créez un espace pour commencer.</string>
+    <string name="space_list_empty_title">Pas d’espace pour l’instant.</string>
+    <string name="a11y_collapse_space_children">Réduire %s enfants</string>
+    <string name="a11y_expand_space_children">Développer %s enfants</string>
+    <string name="change_space">Changer d’espace</string>
+    <string name="device_manager_session_details_device_ip_address">Adresse IP</string>
+    <string name="device_manager_session_details_session_last_activity">Dernière activité</string>
+    <string name="device_manager_session_details_session_name">Nom de la session</string>
+    <string name="device_manager_session_details_description">Application, appareil et information sur l’activité.</string>
+    <string name="device_manager_session_details_title">Détails de session</string>
+    <string name="device_manager_other_sessions_clear_filter">Supprimer les filtres</string>
+    <string name="device_manager_other_sessions_no_inactive_sessions_found">Aucune session inactive n’a été trouvée.</string>
+    <string name="device_manager_other_sessions_no_unverified_sessions_found">Aucune session non vérifiée n’a été trouvée.</string>
+    <string name="device_manager_other_sessions_no_verified_sessions_found">Aucune session vérifiée n’a été trouvée.</string>
+    <plurals name="device_manager_other_sessions_recommendation_description_inactive">
+        <item quantity="one">Pensez à vous déconnecter des anciennes sessions (%1$d jour ou plus) que vous n’utilisez plus.</item>
+        <item quantity="other">Pensez à vous déconnecter des anciennes sessions (%1$d jours ou plus) que vous n’utilisez plus.</item>
+    </plurals>
+    <string name="device_manager_other_sessions_recommendation_title_inactive">Inactif</string>
+    <string name="device_manager_other_sessions_recommendation_description_unverified">Vérifiez vos sessions pour améliorer la sécurité de votre messagerie, ou déconnectez celles que vous ne connaissez pas ou n’utilisez plus.</string>
+    <string name="device_manager_other_sessions_recommendation_title_unverified">Non vérifié</string>
+    <string name="device_manager_other_sessions_recommendation_description_verified">Pour une meilleure sécurité, déconnectez toutes les sessions que vous ne connaissez pas ou que vous n’utilisez plus.</string>
+    <string name="device_manager_other_sessions_recommendation_title_verified">Vérifié</string>
+    <string name="a11y_device_manager_filter">Filtrer</string>
+    <plurals name="device_manager_filter_option_inactive_description">
+        <item quantity="one">Inactif depuis %1$d jour ou plus</item>
+        <item quantity="other">Inactif depuis %1$d jours ou plus</item>
+    </plurals>
+    <string name="device_manager_filter_option_inactive">Inactif</string>
+    <string name="device_manager_filter_option_unverified_description">Pas prêt pour une messagerie sécurisée</string>
+    <string name="device_manager_filter_option_unverified">Non vérifié</string>
+    <string name="device_manager_filter_option_verified_description">Prêt pour une messagerie sécurisée</string>
+    <string name="device_manager_filter_option_verified">Vérifié</string>
+    <string name="device_manager_filter_option_all_sessions">Toutes les sessions</string>
+    <string name="device_manager_filter_bottom_sheet_title">Filtrer</string>
+    <string name="device_manager_session_last_activity">Dernière activité %1$s</string>
+    <string name="device_manager_device_title">Appareil</string>
+    <string name="device_manager_session_title">Session</string>
+    <string name="device_manager_current_session_title">Cette session</string>
+    <string name="device_manager_verification_status_detail_other_session_unverified">Vérifiez ou déconnectez cette session pour une meilleure sécurité et fiabilité.</string>
+    <string name="device_manager_verification_status_detail_current_session_unverified">Vérifiez votre session pour une sécurité accrue de votre messagerie.</string>
+    <string name="device_manager_verification_status_detail_other_session_verified">Cette session est prête pour l’envoi de messages sécurisés.</string>
+    <string name="device_manager_verification_status_detail_current_session_verified">Votre session est prête pour l’envoi de messages sécurisés.</string>
+    <string name="labs_enable_deferred_dm_summary">Créer la conversation seulement lors du premier message</string>
+    <string name="labs_enable_deferred_dm_title">Activer les conversations privées différées</string>
+    <string name="labs_enable_new_app_layout_summary">Un Element simplifié avec des onglets optionnels</string>
+    <string name="labs_enable_new_app_layout_title">Activer la nouvelle présentation</string>
+    <string name="device_manager_learn_more_session_rename">Les autres utilisateurs en conversations privées ou salons qui peuvent vous parler sont capables de voir la liste complète de vos sessions.
+\n
+\nCela leur fournit une preuve de confiance que c’est bien avec vous qu\'ils communiquent, mais cela veut également dire qu’ils peuvent voir le nom de la session que vous saisissez ici.</string>
+    <string name="device_manager_learn_more_session_rename_title">Renommer les sessions</string>
+    <string name="device_manager_learn_more_sessions_verified_title">Sessions vérifiées</string>
+    <string name="device_manager_learn_more_sessions_unverified">Les sessions non vérifiées sont celles qui sont identifiées avec votre mot de passe sans avoir fait de vérification croisée.
+\n
+\nVous devriez tout particulièrement vous assurer de reconnaître ces sessions, car elles pourraient être la preuve d’un usage non autorisé de votre compte.</string>
+    <string name="device_manager_learn_more_sessions_unverified_title">Sessions non vérifiées</string>
+    <string name="device_manager_learn_more_sessions_inactive">Les sessions inactives sont celles que vous n’avez pas utilisées depuis un certain temps, mais qui continue de recevoir les clés de chiffrements.
+\n
+\nLa suppression des sessions inactives améliore la sécurité et la performance, et vous aide à identifier si une nouvelle session est douteuse.</string>
+    <string name="device_manager_learn_more_sessions_inactive_title">Sessions inactives</string>
+    <string name="device_manager_session_rename_warning">Soyez conscient que les noms de sessions sont également visibles pour les personnes avec lesquelles vous communiquez.</string>
+    <string name="device_manager_session_rename_description">Les noms de sessions personnalisés peuvent vous aider à reconnaître vos appareils plus facilement.</string>
+    <string name="device_manager_session_rename_edit_hint">Nom de la session</string>
+    <string name="device_manager_session_rename">Renommer la session</string>
+    <string name="device_manager_session_overview_signout">Se déconnecter de cette session</string>
+    <string name="device_manager_other_sessions_description_unverified_current_session">Non vérifiée · Votre session actuelle</string>
+    <string name="tooltip_attachment_voice_broadcast">Démarrer une diffusion audio</string>
+    <string name="key_authenticity_not_guaranteed">L’authenticité de ce message chiffré ne peut pas être garantie sur cet appareil.</string>
+    <string name="settings_security_incognito_keyboard_summary">Demande au clavier de ne pas mettre à jour les données personnalisées, comme l’historique de la frappe et le dictionnaire composé de ce que vous avez tapé dans vos conversations. Il est possible que certains claviers ne respectent pas ce paramètre.</string>
+    <string name="settings_security_incognito_keyboard_title">Clavier incognito</string>
+    <string name="command_description_table_flip">Préfixe le message par (╯°□°）╯︵ ┻━┻</string>
+    <string name="attachment_type_voice_broadcast">Diffusion audio</string>
+    <string name="command_description_devtools">Ouvrir l’écran des outils développeurs</string>
+    <string name="room_settings_global_block_unverified_info_text">🔒 Vous avez activé le chiffrement vers les sessions vérifiées uniquement, pour tous les salons, dans les paramètres Sécurité.</string>
+    <string name="some_devices_will_not_be_able_to_decrypt">⚠ Il y a des appareils non vérifiés dans ce salon, ils ne pourront pas déchiffrer vos messages envoyés.</string>
+    <string name="encryption_never_send_to_unverified_devices_in_room">Ne jamais envoyer de messages chiffrés aux sessions non vérifiées dans ce salon.</string>
+    <string name="action_got_it">Compris</string>
+    <string name="rich_text_editor_format_underline">Souligner le texte</string>
+    <string name="rich_text_editor_format_strikethrough">Barrer le texte</string>
+    <string name="rich_text_editor_format_italic">Mettre en italique</string>
+    <string name="rich_text_editor_format_bold">Mettre en gras</string>
+    <string name="labs_enable_client_info_recording_summary">Enregistre le nom du client, sa version, et son URL pour retrouvez vos sessions plus facilement dans le gestionnaire de sessions.</string>
+    <string name="labs_enable_client_info_recording_title">Activer l’enregistrement des informations du client</string>
+    <string name="labs_enable_session_manager_summary">Ayez une meilleur visibilité et plus de contrôle sur toutes vos sessions.</string>
+    <string name="labs_enable_session_manager_title">Activer le nouveau gestionnaire de session</string>
+    <string name="device_manager_session_details_device_operating_system">Système d’exploitation</string>
+    <string name="device_manager_session_details_device_model">Modèle</string>
+    <string name="device_manager_session_details_device_browser">Navigateur</string>
+    <string name="device_manager_session_details_application_url">URL</string>
+    <string name="device_manager_session_details_application_version">Version</string>
+    <string name="device_manager_session_details_application_name">Nom</string>
+    <string name="device_manager_session_details_application">Application</string>
+    <string name="device_manager_push_notifications_description">Recevoir les notifications push sur cette session.</string>
+    <string name="device_manager_push_notifications_title">Notifications push</string>
+    <string name="device_manager_verification_status_detail_other_session_unknown">Vérifiez votre session actuelle pour découvrir le statut de vérification de cette session.</string>
+    <string name="device_manager_verification_status_unknown">Status de vérification inconnu</string>
+    <string name="push_gateway_item_enabled">Activer :</string>
+    <string name="push_gateway_item_device_id">Identifiant de session :</string>
+    <string name="error_check_network">Quelque chose s’est mal passé. Vérifiez votre connexion réseau et réessayez.</string>
+    <string name="grant_permission">Accorder la permission</string>
+    <string name="settings_troubleshoot_test_system_settings_permission_failed">${app_name} a besoin d’une permission pour afficher les notifications.
+\nVeuillez accorder la permission.</string>
+    <string name="permissions_rationale_msg_notification">${app_name} a besoin de la permission pour afficher les notifications. Les notifications peuvent afficher vos messages, vos invitations, etc.
+\n
+\nVeuillez autoriser l’accès sur la prochaine fenêtre pour pouvoir voir des notifications.</string>
+    <string name="labs_enable_rich_text_editor_summary">Essayer l’éditeur de texte formaté (le mode texte brut arrive bientôt)</string>
+    <string name="labs_enable_rich_text_editor_title">Activer l’éditeur de texte formaté</string>
+    <string name="qr_code_login_confirm_security_code_description">Vérifiez l’origine de ce code. En appairant un appareil, vous lui fournissez un accès complet à votre compte.</string>
+    <string name="qr_code_login_confirm_security_code">Confirmer</string>
+    <string name="qr_code_login_try_again">Réessayez</string>
+    <string name="qr_code_login_status_no_match">Pas de correspondance \?</string>
+    <string name="qr_code_login_signing_in">Connexion</string>
+    <string name="qr_code_login_connecting_to_device">Connexion à l’appareil</string>
+    <string name="qr_code_login_scan_qr_code_button">Scanner le QR code</string>
+    <string name="qr_code_login_signing_in_a_mobile_device">Connexion sur un appareil mobile \?</string>
+    <string name="qr_code_login_show_qr_code_button">Afficher le QR code sur cet appareil</string>
+    <string name="qr_code_login_link_a_device_show_qr_code_instruction_2">Sélectionnez « Scanner le QR code »</string>
+    <string name="qr_code_login_link_a_device_show_qr_code_instruction_1">Démarrez à l’écran de connexion</string>
+    <string name="qr_code_login_link_a_device_scan_qr_code_instruction_2">Sélectionnez « Se connecter avec un QR code »</string>
+    <string name="qr_code_login_link_a_device_scan_qr_code_instruction_1">Démarrez à l’écran de connexion</string>
+    <string name="qr_code_login_new_device_instruction_3">Sélectionnez « Afficher le QR code »</string>
+    <string name="qr_code_login_new_device_instruction_2">Allez dans Réglages -&gt; Confidentialité et sécurité</string>
+    <string name="qr_code_login_new_device_instruction_1">Ouvrez l’application sur votre autre appareil</string>
+    <string name="qr_code_login_header_failed_homeserver_is_not_supported_description">Le serveur d’accueil ne prend pas en charge la connexion avec un QR code.</string>
+    <string name="qr_code_login_header_failed_user_cancelled_description">La connexion a été annulée sur l’autre appareil.</string>
+    <string name="qr_code_login_header_failed_invalid_qr_code_description">Ce QR code est invalide.</string>
+    <string name="qr_code_login_header_failed_other_device_not_signed_in_description">L’autre appareil doit être connecté.</string>
+    <string name="qr_code_login_header_failed_other_device_already_signed_in_description">L’autre appareil est déjà connecté.</string>
+    <string name="qr_code_login_header_failed_e2ee_security_issue_description">La configuration de la messagerie sécurisée a rencontré un problème de sécurité. Un des éléments suivants pourrait être compromis : votre serveur d’accueil ; votre connexion Internet ; votre (vos) appareil(s) ;</string>
+    <string name="qr_code_login_header_failed_other_description">La requête a échoué.</string>
+    <string name="qr_code_login_header_failed_denied_description">La requête a été refusée sur l’autre appareil.</string>
+    <string name="qr_code_login_header_failed_timeout_description">L’appairage n’a pas été effectué dans le temps imparti.</string>
+    <string name="qr_code_login_header_failed_device_is_not_supported_description">L’appairage avec cet appareil n’est pas pris en charge.</string>
+    <string name="qr_code_login_header_failed_title">Échec de la connexion</string>
+    <string name="qr_code_login_header_connected_description">Vérifiez votre appareil connecté, le code ci-dessous devrait y être affiché. Confirmez que le code ci-dessous correspond à celui de l’autre appareil :</string>
+    <string name="qr_code_login_header_connected_title">Connexion sécurisée établie</string>
+    <string name="qr_code_login_header_show_qr_code_link_a_device_description">Scannez le QR code ci-dessous avec l’appareil qui n’est pas connecté.</string>
+    <string name="qr_code_login_header_show_qr_code_new_device_description">Utilisez votre appareil connecté pour scanner le QR code ci-dessous :</string>
+    <string name="qr_code_login_header_show_qr_code_title">Se connecter avec un QR code</string>
+    <string name="qr_code_login_header_scan_qr_code_description">Utilisez l’appareil photo de cet appareil pour scanner le QR code affiché sur votre autre appareil :</string>
+    <string name="qr_code_login_header_scan_qr_code_title">Scanner le QR code</string>
+    <string name="three">3</string>
+    <string name="two">2</string>
+    <string name="one">1</string>
+    <string name="labs_enable_voice_broadcast_summary">Pouvoir enregistrer et envoyer une diffusion audio dans l’historique du salon.</string>
+    <string name="labs_enable_voice_broadcast_title">Activer la diffusion audio</string>
+    <string name="device_manager_sessions_sign_in_with_qr_code_description">Vous pouvez utiliser cet appareil pour connecter un appareil mobile ou un client web avec un QR code. Il y a deux façons de le faire :</string>
+    <string name="device_manager_sessions_sign_in_with_qr_code_title">Se connecter avec un QR code</string>
+    <string name="login_scan_qr_code">Scanner le QR code</string>
+    <string name="voice_broadcast_buffering">Mise en mémoire tampon…</string>
+    <string name="a11y_pause_voice_broadcast">Mettre en pause la diffusion audio</string>
+    <string name="a11y_play_voice_broadcast">Lire ou continuer la diffusion audio</string>
+    <string name="a11y_stop_voice_broadcast_record">Arrêter l’enregistrement de la diffusion audio</string>
+    <string name="a11y_pause_voice_broadcast_record">Mettre en pause l’enregistrement de la diffusion audio</string>
+    <string name="a11y_resume_voice_broadcast_record">Continuer l’enregistrement de la diffusion audio</string>
+    <string name="voice_broadcast_live">Direct</string>
+    <string name="device_manager_other_sessions_select">Sélectionner des sessions</string>
+    <string name="attachment_type_selector_contact">Contact</string>
+    <string name="attachment_type_selector_camera">Appareil photo</string>
+    <string name="attachment_type_selector_location">Position</string>
+    <string name="attachment_type_selector_poll">Sondages</string>
+    <string name="attachment_type_selector_voice_broadcast">Diffusion audio</string>
+    <string name="attachment_type_selector_file">Pièces jointes</string>
+    <string name="attachment_type_selector_sticker">Autocollants</string>
+    <string name="attachment_type_selector_gallery">Galerie photo</string>
+    <string name="action_deselect_all">Tout désélectionner</string>
+    <string name="action_select_all">Tout sélectionner</string>
+    <plurals name="x_selected">
+        <item quantity="one">%1$d sélectionné</item>
+        <item quantity="other">%1$d sélectionnés</item>
+    </plurals>
+    <string name="rich_text_editor_full_screen_toggle">Basculer en mode plein écran</string>
+    <string name="attachment_type_selector_text_formatting">Formatage de texte</string>
+    <string name="error_voice_broadcast_already_in_progress_message">Vous êtes déjà en train de réaliser une diffusion audio. Veuillez terminer votre diffusion audio actuelle pour en démarrer une nouvelle.</string>
+    <string name="error_voice_broadcast_blocked_by_someone_else_message">Une autre personne est déjà en train de réaliser une diffusion audio. Attendez que sa diffusion audio soit terminée pour en démarrer une nouvelle.</string>
+    <string name="error_voice_broadcast_permission_denied_message">Vous n’avez pas les permissions requises pour démarrer une nouvelle diffusion audio dans ce salon. Contactez un administrateur du salon pour mettre-à-jour vos permissions.</string>
+    <string name="error_voice_broadcast_unauthorized_title">Impossible de commencer une nouvelle diffusion audio</string>
+    <string name="a11y_voice_broadcast_fast_forward">Avance rapide de 30 secondes</string>
+    <string name="a11y_voice_broadcast_fast_backward">Retour rapide de 30 secondes</string>
+    <string name="device_manager_learn_more_sessions_verified_description">Les sessions vérifiées sont toutes celles qui utilisent ce compte après avoir saisie la phrase de sécurité ou confirmé votre identité à l’aide d’une autre session vérifiée.
+\n
+\nCela veut dire qu’elles disposent de toutes les clés nécessaires pour lire les messages chiffrés, et confirment aux autres utilisateurs que vous faites confiance à cette session.</string>
+    <plurals name="device_manager_other_sessions_multi_signout_all">
+        <item quantity="one">Déconnecter %1$d session</item>
+        <item quantity="other">Déconnecter %1$d sessions</item>
+    </plurals>
+    <string name="device_manager_other_sessions_multi_signout_selection">Déconnecter</string>
+    <string name="voice_broadcast_recording_time_left">%1$s restant</string>
+    <string name="message_reply_to_sender_created_poll">a créé un sondage.</string>
+    <string name="message_reply_to_sender_sent_sticker">a envoyé un autocollant.</string>
+    <string name="message_reply_to_sender_sent_video">a envoyé une vidéo.</string>
+    <string name="message_reply_to_sender_sent_image">a envoyé une image.</string>
+    <string name="message_reply_to_sender_sent_voice_message">envoyer un message vocal.</string>
+    <string name="message_reply_to_sender_sent_audio_file">a envoyé un fichier audio.</string>
+    <string name="message_reply_to_sender_sent_file">a envoyé un fichier.</string>
+    <string name="message_reply_to_prefix">En réponse à</string>
+    <string name="device_manager_other_sessions_hide_ip_address">Masquer l’adresse IP</string>
+    <string name="device_manager_other_sessions_show_ip_address">Afficher l’adresse IP</string>
+    <string name="quoting">Citation de</string>
+    <string name="replying_to">Réponse à %s</string>
+    <string name="editing">Modification</string>
+    <string name="settings_enable_direct_share_summary">Affiche les conversations récentes dans le menu de partage du système</string>
+    <string name="settings_enable_direct_share_title">Activer le partage direct</string>
+    <string name="review_unverified_sessions_description">Vérifiez pour assurer la sécurité de votre compte</string>
+    <string name="review_unverified_sessions_title">Vous avez des sessions non vérifiées</string>
+    <string name="device_manager_learn_more_sessions_encryption_not_supported">Cette session ne prend pas en charge le chiffrement, elle ne peut donc pas être vérifiée.
+\n
+\nVous ne pourrez pas participer dans les salons où le chiffrement est activé en utilisant cette session.
+\n
+\nPour de meilleures sécurité et confidentialité, il est recommandé d’utiliser des clients Matrix qui prennent en charge le chiffrement.</string>
+    <string name="device_manager_signout_all_other_sessions">Déconnecter toutes les autres sessions</string>
+    <string name="device_manager_verification_status_detail_session_encryption_not_supported">Cette session ne prend pas en charge le chiffrement, elle ne peut donc pas être vérifiée.</string>
+    <string name="voice_broadcast_live_broadcast">Diffusion en direct</string>
+    <string name="settings_nightly_build_update">Obtenir la toute dernière version (note : vous pourriez avoir des problèmes pour vous connecter)</string>
+    <string name="settings_nightly_build">Version Nightly</string>
+    <string name="notice_voice_broadcast_ended_by_you">Vous avez terminé une diffusion audio.</string>
+    <string name="notice_voice_broadcast_ended">%1$s a terminé une diffusion audio.</string>
+    <string name="stop_voice_broadcast_content">Êtes-vous sûr de vouloir arrêter votre diffusion en direct \? Cela terminera la diffusion et l’enregistrement complet sera disponible dans le salon.</string>
+    <string name="stop_voice_broadcast_dialog_title">Arrêter la diffusion en direct \?</string>
+    <string name="action_stop">Oui, arrêter</string>
+    <string name="set_link_edit">Éditer le lien</string>
+    <string name="set_link_create">Crée un lien</string>
+    <string name="set_link_link">Lien</string>
+    <string name="set_link_text">Texte</string>
+    <string name="rich_text_editor_link">Définir un lien</string>
+    <string name="settings_access_token_summary">Votre jeton d’accès donne un accès intégral à votre compte. Ne le partagez avec personne.</string>
+    <string name="settings_access_token">Jeton d’accès</string>
+    <string name="rich_text_editor_bullet_list">(Dés)activer la liste à puce</string>
+    <string name="rich_text_editor_numbered_list">(Dés)activer la liste numérotée</string>
+    <string name="room_polls_ended_no_item">Il n’y a aucun ancien sondage dans ce salon</string>
+    <string name="room_polls_ended">Anciens sondages</string>
+    <string name="room_polls_active_no_item">Il n’y a aucun sondage en cours dans ce salon</string>
+    <string name="room_polls_active">Sondages actifs</string>
+    <string name="room_profile_section_more_polls">Historique des sondages</string>
+    <string name="message_reply_to_ended_poll_preview">Sondage terminé</string>
+    <string name="message_reply_to_poll_preview">Sondage</string>
+    <string name="message_reply_to_sender_ended_poll">a terminé un sondage.</string>
+    <string name="ended_poll_indicator">A terminé le sondage.</string>
+    <string name="thread_list_not_available">Votre serveur d’accueil ne prend pas encore en charge l’affichage de la liste des fils de discussion.</string>
+    <string name="error_voice_broadcast_unable_to_play">Impossible de lire cette diffusion audio.</string>
+    <string name="started_a_voice_broadcast">A démarré une diffusion audio</string>
+    <string name="unable_to_decrypt_some_events_in_poll">À cause d’erreurs de déchiffrement, certains votes pourraient ne pas avoir été pris en compte</string>
+    <string name="room_polls_loading_error">Erreur lors de la récupération des sondages.</string>
+    <string name="room_polls_load_more">Charger plus de sondages</string>
+    <string name="room_polls_wait_for_display">Affichage des sondages</string>
+    <plurals name="room_polls_ended_no_item_for_loaded_period">
+        <item quantity="one">Il n’y a aucun sondage terminé depuis hier.
+\nChargez plus de sondages pour voir les sondages des jours précédents.</item>
+        <item quantity="other">Il n’y a aucun sondage terminé depuis %1$d jours.
+\nChargez plus de sondages pour voir les sondages des jours précédents.</item>
+    </plurals>
+    <plurals name="room_polls_active_no_item_for_loaded_period">
+        <item quantity="one">Il n’y a aucun sondage actif depuis hier.
+\nChargez plus de sondages pour voir les sondages des jours précédents.</item>
+        <item quantity="other">Il n’y a aucun sondage actif depuis %1$d jours.
+\nChargez plus de sondages pour voir les sondages des jours précédents.</item>
+    </plurals>
+    <string name="error_voice_message_broadcast_in_progress_message">Vous ne pouvez pas commencer un message vocal car vous êtes en train d’enregistrer une diffusion en direct. Veuillez terminer cette diffusion pour commencer un message vocal</string>
+    <string name="error_voice_message_broadcast_in_progress">Impossible de démarrer un message vocal</string>
+    <string name="error_voice_broadcast_no_connection_recording">Erreur de connexion – Enregistrement en pause</string>
+    <string name="rich_text_editor_inline_code">Appliquer le formatage de code en ligne</string>
+    <string name="rich_text_editor_code_block">Bloc de code</string>
+    <string name="rich_text_editor_quote">Citation</string>
+    <string name="rich_text_editor_unindent">Désindenter</string>
+    <string name="rich_text_editor_indent">Indenter</string>
+    <string name="room_poll_details_go_to_timeline">Consulter la chronologie des sondages</string>
+    <string name="error_voice_broadcast_unable_to_decrypt">Impossible de déchiffrer cette diffusion audio.</string>
+    <string name="settings_external_account_management">Les détails de votre compte sont gérés séparément sur %1$s.</string>
+    <string name="settings_external_account_management_title">Compte</string>
+    <string name="settings_notification_error_on_update">Nous avons rencontré une erreur lors de la mise-à-jour de vos préférences de notification. Veuillez réessayer.</string>
+    <string name="direct_room_encryption_enabled_waiting_users_tile_description">Une fois que les utilisateurs invités seront connectés sur ${app_name}, vous pourrez discuter et le salon sera chiffré de bout en bout</string>
+    <string name="direct_room_encryption_enabled_waiting_users">En attente de la connexion des utilisateurs sur ${app_name}</string>
+    <string name="direct_room_user_list_only_invite_one_email">Vous ne pouvez envoyer qu’une seule invitation par courriel à la fois</string>
+    <string name="pill_message_unknown_room_or_space">Salon/Espace</string>
+    <string name="pill_message_in_unknown_room">Message dans le salon</string>
+    <string name="pill_message_in_room">Message dans %s</string>
+    <string name="pill_message_from_unknown_user">Message</string>
+    <string name="pill_message_from_user">Message de %s</string>
+    <string name="encrypted_by_deleted">Chiffré par un appareil supprimé</string>
+    <string name="secure_backup_reset_danger_warning">Veuillez ne continuer que si vous êtes certain d’avoir perdu tous vos autres appareils et votre clé de sécurité.</string>
+    <string name="secure_backup_reset_all_no_other_devices_long">La réinitialisation de vos clés de vérification ne peut pas être annulé. Après la réinitialisation, vous n’aurez plus accès à vos anciens messages chiffrés, et tous les amis que vous aviez précédemment vérifiés verront des avertissement de sécurité jusqu\'à ce vous les vérifiiez à nouveau.</string>
+    <string name="verification_not_found">La demande de vérification n’a pas été trouvée. Elle a peut-être été annulée, ou prise en charge dans une autre session.</string>
+    <string name="verification_request_was_sent">Une demande de vérification a été envoyée. Ouvrez l’une de vos autres sessions pour accepter et commencer la vérification.</string>
+    <string name="_resume">Reprendre</string>
+    <string name="verification_verify_identity">Vérifiez votre identité pour accéder aux messages chiffrés et prouver votre identité aux autres.</string>
+    <string name="verification_verify_with_another_device">Vérifier avec un autre appareil</string>
+    <string name="verification_request_waiting_for_recovery">Vérification depuis la clé ou phrase de sécurité…</string>
+    <string name="settings_acceptable_use_policy">Politique d’utilisation acceptable</string>
+    <string name="settings_crypto_version">Version de cryptographie</string>
+    <string name="action_proceed_to_reset">Faire la réinitialisation</string>
+    <string name="notice_display_name_changed_to">%1$s a modifié son nom d’affichage en %2$s</string>
+    <string name="avatar_of_user">Image de profile de l’utilisateur %1$s</string>
+    <string name="avatar_of_room">Avatar du salon %1$s</string>
+    <string name="avatar_of_space">Avatar de l’espace %1$s</string>
+    <string name="confirm_your_identity_after_update">La messagerie sécurisée a été améliorée avec la dernière mise-à-jour. Veuillez re-vérifier votre appareil.</string>
+    <string name="verification_profile_other_device_untrust_info">Jusqu’à ce que cet utilisateur fasse confiance à cette session, les messages sur cette session sont étiquetés avec des avertissements.</string>
+    <string name="crosssigning_verify_after_update">Application mise-à-jour</string>
+    <string name="sign_out_anyway">Se déconnecter malgré tout</string>
+    <string name="sign_out_failed_dialog_message">Impossible de joindre le serveur d’accueil. Si vous vous déconnectez malgré tout, cet appareil ne sera pas effacé de la liste de vos appareils, vous pourrez l’enlever en utilisant un autre client.</string>
+    <string name="invite_unknown_users_dialog_content">Impossible de trouver les profils pour les identifiants Matrix listés ci-dessous. Voulez-vous quand même les inviter \?
+\n
+\n%s</string>
+    <string name="invite_unknown_users_dialog_submit">Inviter quand même</string>
+    <string name="login_splash_sign_in">Se connecter</string>
+    <string name="create_room_unknown_users_dialog_content">Impossible de trouver des profils pour les ID Matrix listés ci-dessous. Voulez-vous tout de même débuter une nouvelle conversation \?
+\n
+\n%s</string>
+    <string name="create_room_unknown_users_dialog_submit">Commencer la conversation quand même</string>
+    <string name="user_reported_as_inappropriate_title">Utilisateur signalé</string>
+    <string name="message_report_user">Signaler l’utilisateur</string>
+    <string name="user_reported_as_inappropriate_content">Ce contenu a été signalé.
+\n
+\nSi vous ne voulez plus voir de contenu de cet utilisateur, vous pouvez l’ignorer pour masquer ses messages.</string>
+    <string name="call_unsupported">Appel non pris en charge</string>
+    <string name="call_unsupported_matrix_rtc_call">Appel non pris en charge. La nouvelle application Element X est nécessaire pour rejoindre cet appel.</string>
+    <string name="microphone_in_use_title">Microphone en service</string>
 </resources>

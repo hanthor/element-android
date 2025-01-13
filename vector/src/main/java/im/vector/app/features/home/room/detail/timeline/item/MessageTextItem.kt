@@ -1,23 +1,15 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.detail.timeline.item
 
 import android.text.Spanned
 import android.text.method.MovementMethod
+import android.view.ViewStub
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.text.PrecomputedTextCompat
 import androidx.core.view.isVisible
@@ -34,6 +26,7 @@ import im.vector.app.features.home.room.detail.timeline.url.PreviewUrlUiState
 import im.vector.app.features.home.room.detail.timeline.url.PreviewUrlView
 import im.vector.app.features.media.ImageContentRenderer
 import im.vector.lib.core.utils.epoxy.charsequence.EpoxyCharSequence
+import io.element.android.wysiwyg.EditorStyledTextView
 import io.noties.markwon.MarkwonPlugin
 import org.matrix.android.sdk.api.extensions.orFalse
 
@@ -67,6 +60,9 @@ abstract class MessageTextItem : AbsMessageItem<MessageTextItem.Holder>() {
     @EpoxyAttribute(EpoxyAttribute.Option.DoNotHash)
     var markwonPlugins: (List<MarkwonPlugin>)? = null
 
+    @EpoxyAttribute
+    var useRichTextEditorStyle: Boolean = false
+
     private val previewUrlViewUpdater = PreviewUrlViewUpdater()
 
     override fun bind(holder: Holder) {
@@ -81,28 +77,34 @@ abstract class MessageTextItem : AbsMessageItem<MessageTextItem.Holder>() {
         }
         holder.previewUrlView.delegate = previewUrlCallback
         holder.previewUrlView.renderMessageLayout(attributes.informationData.messageLayout)
-
-        if (useBigFont) {
-            holder.messageView.textSize = 44F
+        if (useRichTextEditorStyle) {
+            holder.plainMessageView?.isVisible = false
         } else {
-            holder.messageView.textSize = 14F
+            holder.richMessageView?.isVisible = false
+        }
+        val messageView: AppCompatTextView = if (useRichTextEditorStyle) holder.requireRichMessageView() else holder.requirePlainMessageView()
+        messageView.isVisible = true
+        if (useBigFont) {
+            messageView.textSize = 44F
+        } else {
+            messageView.textSize = 15.5F
         }
         if (searchForPills) {
             message?.charSequence?.findPillsAndProcess(coroutineScope) {
                 // mmm.. not sure this is so safe in regards to cell reuse
-                it.bind(holder.messageView)
+                it.bind(messageView)
             }
         }
         message?.charSequence.let { charSequence ->
-            markwonPlugins?.forEach { plugin -> plugin.beforeSetText(holder.messageView, charSequence as Spanned) }
+            markwonPlugins?.forEach { plugin -> plugin.beforeSetText(messageView, charSequence as Spanned) }
         }
         super.bind(holder)
-        holder.messageView.movementMethod = movementMethod
-        renderSendState(holder.messageView, holder.messageView)
-        holder.messageView.onClick(attributes.itemClickListener)
-        holder.messageView.onLongClickIgnoringLinks(attributes.itemLongClickListener)
-        holder.messageView.setTextWithEmojiSupport(message?.charSequence, bindingOptions)
-        markwonPlugins?.forEach { plugin -> plugin.afterSetText(holder.messageView) }
+        messageView.movementMethod = movementMethod
+        renderSendState(messageView, messageView)
+        messageView.onClick(attributes.itemClickListener)
+        messageView.onLongClickIgnoringLinks(attributes.itemLongClickListener)
+        messageView.setTextWithEmojiSupport(message?.charSequence, bindingOptions)
+        markwonPlugins?.forEach { plugin -> plugin.afterSetText(messageView) }
     }
 
     private fun AppCompatTextView.setTextWithEmojiSupport(message: CharSequence?, bindingOptions: BindingOptions?) {
@@ -125,8 +127,31 @@ abstract class MessageTextItem : AbsMessageItem<MessageTextItem.Holder>() {
     override fun getViewStubId() = STUB_ID
 
     class Holder : AbsMessageItem.Holder(STUB_ID) {
-        val messageView by bind<AppCompatTextView>(R.id.messageTextView)
         val previewUrlView by bind<PreviewUrlView>(R.id.messageUrlPreview)
+        private val richMessageStub by bind<ViewStub>(R.id.richMessageTextViewStub)
+        private val plainMessageStub by bind<ViewStub>(R.id.plainMessageTextViewStub)
+        var richMessageView: EditorStyledTextView? = null
+            private set
+        var plainMessageView: AppCompatTextView? = null
+            private set
+
+        fun requireRichMessageView(): AppCompatTextView {
+            val view = richMessageView ?: richMessageStub.inflate().findViewById<EditorStyledTextView>(R.id.messageTextView).also {
+                // Required to ensure that `inlineCodeBgHelper` and `codeBlockBgHelper` are initialized
+                it.updateStyle(
+                        styleConfig = it.styleConfig,
+                        mentionDisplayHandler = null,
+                )
+            }
+            richMessageView = view
+            return view
+        }
+
+        fun requirePlainMessageView(): AppCompatTextView {
+            val view = plainMessageView ?: plainMessageStub.inflate().findViewById(R.id.messageTextView)
+            plainMessageView = view
+            return view
+        }
     }
 
     inner class PreviewUrlViewUpdater : PreviewUrlRetriever.PreviewUrlRetrieverListener {

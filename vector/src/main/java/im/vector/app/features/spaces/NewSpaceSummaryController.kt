@@ -1,27 +1,18 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.spaces
 
 import com.airbnb.epoxy.EpoxyController
-import im.vector.app.R
 import im.vector.app.core.resources.StringProvider
 import im.vector.app.features.grouplist.newHomeSpaceSummaryItem
 import im.vector.app.features.home.AvatarRenderer
 import im.vector.app.features.home.room.list.UnreadCounterBadgeView
+import im.vector.lib.strings.CommonStrings
 import org.matrix.android.sdk.api.extensions.orFalse
 import org.matrix.android.sdk.api.session.room.model.Membership
 import org.matrix.android.sdk.api.session.room.model.RoomSummary
@@ -69,10 +60,10 @@ class NewSpaceSummaryController @Inject constructor(
         val host = this
         newHomeSpaceSummaryItem {
             id("space_home")
-            text(host.stringProvider.getString(R.string.all_chats))
+            text(host.stringProvider.getString(CommonStrings.all_chats))
             selected(selected)
             countState(UnreadCounterBadgeView.State.Count(homeCount.totalCount, homeCount.isHighlight))
-            listener { host.callback?.onSpaceSelected(null) }
+            listener { host.callback?.onSpaceSelected(null, isSubSpace = false) }
         }
     }
 
@@ -99,7 +90,7 @@ class NewSpaceSummaryController @Inject constructor(
                         hasChildren(hasChildren)
                         matrixItem(spaceSummary.toMatrixItem())
                         onLongClickListener { host.callback?.onSpaceSettings(spaceSummary) }
-                        onSpaceSelectedListener { host.callback?.onSpaceSelected(spaceSummary) }
+                        onSpaceSelectedListener { host.callback?.onSpaceSelected(spaceSummary, isSubSpace = false) }
                         onToggleExpandListener { host.callback?.onToggleExpand(spaceSummary) }
                         selected(isSelected)
                     }
@@ -140,7 +131,7 @@ class NewSpaceSummaryController @Inject constructor(
             indent(depth)
             matrixItem(childSummary.toMatrixItem())
             onLongClickListener { host.callback?.onSpaceSettings(childSummary) }
-            onSubSpaceSelectedListener { host.callback?.onSpaceSelected(childSummary) }
+            onSubSpaceSelectedListener { host.callback?.onSpaceSelected(childSummary, isSubSpace = true) }
             onToggleExpandListener { host.callback?.onToggleExpand(childSummary) }
             selected(isSelected)
         }
@@ -184,8 +175,10 @@ class NewSpaceSummaryController @Inject constructor(
         }
     }
 
+    /**
+     * This is a full duplicate of [SpaceSummaryController.Callback]. We need to merge them ASAP*/
     interface Callback {
-        fun onSpaceSelected(spaceSummary: RoomSummary?)
+        fun onSpaceSelected(spaceSummary: RoomSummary?, isSubSpace: Boolean)
         fun onSpaceInviteSelected(spaceSummary: RoomSummary)
         fun onSpaceSettings(spaceSummary: RoomSummary)
         fun onToggleExpand(spaceSummary: RoomSummary)

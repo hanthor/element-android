@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.notifications
@@ -30,13 +21,13 @@ class NotifiableEventProcessor @Inject constructor(
         private val autoAcceptInvites: AutoAcceptInvites
 ) {
 
-    fun process(queuedEvents: List<NotifiableEvent>, currentRoomId: String?, renderedEvents: ProcessedEvents): ProcessedEvents {
+    fun process(queuedEvents: List<NotifiableEvent>, currentRoomId: String?, currentThreadId: String?, renderedEvents: ProcessedEvents): ProcessedEvents {
         val processedEvents = queuedEvents.map {
             val type = when (it) {
                 is InviteNotifiableEvent -> if (autoAcceptInvites.hideInvites) REMOVE else KEEP
                 is NotifiableMessageEvent -> when {
-                    shouldIgnoreMessageEventInRoom(currentRoomId, it.roomId) -> REMOVE
-                            .also { Timber.d("notification message removed due to currently viewing the same room") }
+                    it.shouldIgnoreMessageEventInRoom(currentRoomId, currentThreadId) -> REMOVE
+                            .also { Timber.d("notification message removed due to currently viewing the same room or thread") }
                     outdatedDetector.isMessageOutdated(it) -> REMOVE
                             .also { Timber.d("notification message removed due to being read") }
                     else -> KEEP
@@ -54,9 +45,5 @@ class NotifiableEventProcessor @Inject constructor(
         }.map { ProcessedEvent(REMOVE, it.event) }
 
         return removedEventsDiff + processedEvents
-    }
-
-    private fun shouldIgnoreMessageEventInRoom(currentRoomId: String?, roomId: String?): Boolean {
-        return currentRoomId != null && roomId == currentRoomId
     }
 }

@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2022 New Vector Ltd
+ * Copyright 2022-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.core.di
@@ -34,19 +25,25 @@ import im.vector.app.SpaceStateHandler
 import im.vector.app.SpaceStateHandlerImpl
 import im.vector.app.config.Config
 import im.vector.app.core.debug.FlipperProxy
+import im.vector.app.core.device.DefaultGetDeviceInfoUseCase
+import im.vector.app.core.device.GetDeviceInfoUseCase
 import im.vector.app.core.dispatchers.CoroutineDispatchers
 import im.vector.app.core.error.DefaultErrorFormatter
 import im.vector.app.core.error.ErrorFormatter
 import im.vector.app.core.resources.BuildMeta
-import im.vector.app.core.time.Clock
-import im.vector.app.core.time.DefaultClock
 import im.vector.app.core.utils.AndroidSystemSettingsProvider
 import im.vector.app.core.utils.SystemSettingsProvider
 import im.vector.app.features.analytics.AnalyticsTracker
 import im.vector.app.features.analytics.VectorAnalytics
+import im.vector.app.features.analytics.errors.ErrorTracker
 import im.vector.app.features.analytics.impl.DefaultVectorAnalytics
+import im.vector.app.features.analytics.metrics.VectorPlugins
+import im.vector.app.features.configuration.VectorCustomEventTypesProvider
 import im.vector.app.features.invite.AutoAcceptInvites
 import im.vector.app.features.invite.CompileTimeAutoAcceptInvites
+import im.vector.app.features.mdm.DefaultMdmService
+import im.vector.app.features.mdm.MdmData
+import im.vector.app.features.mdm.MdmService
 import im.vector.app.features.navigation.DefaultNavigator
 import im.vector.app.features.navigation.Navigator
 import im.vector.app.features.pin.PinCodeStore
@@ -58,6 +55,9 @@ import im.vector.app.features.settings.VectorPreferences
 import im.vector.app.features.ui.SharedPreferencesUiStateRepository
 import im.vector.app.features.ui.UiStateRepository
 import im.vector.application.BuildConfig
+import im.vector.application.R
+import im.vector.lib.core.utils.timer.Clock
+import im.vector.lib.core.utils.timer.DefaultClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -65,23 +65,25 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.SupervisorJob
 import org.matrix.android.sdk.api.Matrix
 import org.matrix.android.sdk.api.MatrixConfiguration
+import org.matrix.android.sdk.api.SyncConfig
 import org.matrix.android.sdk.api.auth.AuthenticationService
 import org.matrix.android.sdk.api.auth.HomeServerHistoryService
-import org.matrix.android.sdk.api.legacy.LegacySessionImporter
 import org.matrix.android.sdk.api.raw.RawService
 import org.matrix.android.sdk.api.session.Session
+import org.matrix.android.sdk.api.session.sync.filter.SyncFilterParams
 import org.matrix.android.sdk.api.settings.LightweightSettingsStorage
 import javax.inject.Singleton
 
-@InstallIn(SingletonComponent::class)
-@Module
-abstract class VectorBindModule {
+@InstallIn(SingletonComponent::class) @Module abstract class VectorBindModule {
 
     @Binds
     abstract fun bindNavigator(navigator: DefaultNavigator): Navigator
 
     @Binds
     abstract fun bindVectorAnalytics(analytics: DefaultVectorAnalytics): VectorAnalytics
+
+    @Binds
+    abstract fun bindErrorTracker(analytics: DefaultVectorAnalytics): ErrorTracker
 
     @Binds
     abstract fun bindAnalyticsTracker(analytics: DefaultVectorAnalytics): AnalyticsTracker
@@ -99,10 +101,10 @@ abstract class VectorBindModule {
     abstract fun bindAutoAcceptInvites(autoAcceptInvites: CompileTimeAutoAcceptInvites): AutoAcceptInvites
 
     @Binds
-    abstract fun bindDefaultClock(clock: DefaultClock): Clock
+    abstract fun bindEmojiSpanify(emojiCompatWrapper: EmojiCompatWrapper): EmojiSpanify
 
     @Binds
-    abstract fun bindEmojiSpanify(emojiCompatWrapper: EmojiCompatWrapper): EmojiSpanify
+    abstract fun bindMdmService(service: DefaultMdmService): MdmService
 
     @Binds
     abstract fun bindFontScale(fontScale: FontScalePreferencesImpl): FontScalePreferences
@@ -112,11 +114,12 @@ abstract class VectorBindModule {
 
     @Binds
     abstract fun bindSpaceStateHandler(spaceStateHandlerImpl: SpaceStateHandlerImpl): SpaceStateHandler
+
+    @Binds
+    abstract fun bindGetDeviceInfoUseCase(getDeviceInfoUseCase: DefaultGetDeviceInfoUseCase): GetDeviceInfoUseCase
 }
 
-@InstallIn(SingletonComponent::class)
-@Module
-object VectorStaticModule {
+@InstallIn(SingletonComponent::class) @Module object VectorStaticModule {
 
     @Provides
     fun providesContext(application: Application): Context {
@@ -138,6 +141,9 @@ object VectorStaticModule {
             vectorPreferences: VectorPreferences,
             vectorRoomDisplayNameFallbackProvider: VectorRoomDisplayNameFallbackProvider,
             flipperProxy: FlipperProxy,
+            vectorPlugins: VectorPlugins,
+            vectorCustomEventTypesProvider: VectorCustomEventTypesProvider,
+            mdmService: MdmService,
     ): MatrixConfiguration {
         return MatrixConfiguration(
                 applicationFlavor = BuildConfig.FLAVOR_DESCRIPTION,
@@ -145,6 +151,13 @@ object VectorStaticModule {
                 threadMessagesEnabledDefault = vectorPreferences.areThreadMessagesEnabled(),
                 networkInterceptors = listOfNotNull(
                         flipperProxy.networkInterceptor(),
+                ),
+                metricPlugins = vectorPlugins.plugins(),
+                cryptoAnalyticsPlugin = vectorPlugins.cryptoMetricPlugin,
+                customEventTypesProvider = vectorCustomEventTypesProvider,
+                clientPermalinkBaseUrl = mdmService.getData(MdmData.PermalinkBaseUrl),
+                syncConfig = SyncConfig(
+                        syncFilterParams = SyncFilterParams(lazyLoadMembersForStateEvents = true, useThreadNotifications = true)
                 )
         )
     }
@@ -159,11 +172,6 @@ object VectorStaticModule {
     fun providesCurrentSession(activeSessionHolder: ActiveSessionHolder): Session {
         // TODO handle session injection better
         return activeSessionHolder.getActiveSession()
-    }
-
-    @Provides
-    fun providesLegacySessionImporter(matrix: Matrix): LegacySessionImporter {
-        return matrix.legacySessionImporter()
     }
 
     @Provides
@@ -209,15 +217,15 @@ object VectorStaticModule {
 
     @Provides
     @Singleton
-    fun providesBuildMeta() = BuildMeta(
+    fun providesBuildMeta(context: Context) = BuildMeta(
             isDebug = BuildConfig.DEBUG,
             applicationId = BuildConfig.APPLICATION_ID,
+            applicationName = context.getString(R.string.app_name),
             lowPrivacyLoggingEnabled = Config.LOW_PRIVACY_LOG_ENABLE,
             versionName = BuildConfig.VERSION_NAME,
             gitRevision = BuildConfig.GIT_REVISION,
             gitRevisionDate = BuildConfig.GIT_REVISION_DATE,
             gitBranchName = BuildConfig.GIT_BRANCH_NAME,
-            buildNumber = BuildConfig.BUILD_NUMBER,
             flavorDescription = BuildConfig.FLAVOR_DESCRIPTION,
             flavorShortDescription = BuildConfig.SHORT_FLAVOR_DESCRIPTION,
     )
@@ -228,4 +236,8 @@ object VectorStaticModule {
     fun providesDefaultSharedPreferences(context: Context): SharedPreferences {
         return PreferenceManager.getDefaultSharedPreferences(context.applicationContext)
     }
+
+    @Singleton
+    @Provides
+    fun providesDefaultClock(): Clock = DefaultClock()
 }

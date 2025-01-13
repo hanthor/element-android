@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.detail
@@ -20,6 +11,7 @@ import com.airbnb.mvrx.Async
 import com.airbnb.mvrx.MavericksState
 import com.airbnb.mvrx.Uninitialized
 import im.vector.app.features.home.room.detail.arguments.TimelineArgs
+import im.vector.app.features.share.SharedData
 import org.matrix.android.sdk.api.extensions.orFalse
 import org.matrix.android.sdk.api.session.events.model.Event
 import org.matrix.android.sdk.api.session.room.members.ChangeMembershipState
@@ -59,8 +51,8 @@ data class RoomDetailViewState(
         val formattedTypingUsers: String? = null,
         val tombstoneEvent: Event? = null,
         val joinUpgradedRoomAsync: Async<String> = Uninitialized,
-        val syncState: SyncState = SyncState.Idle,
-        val incrementalSyncRequestState: SyncRequestState.IncrementalSyncRequestState = SyncRequestState.IncrementalSyncIdle,
+        val syncState: SyncState? = null,
+        val incrementalSyncRequestState: SyncRequestState.IncrementalSyncRequestState? = null,
         val pushCounter: Int = 0,
         val highlightedEventId: String? = null,
         val unreadState: UnreadState = UnreadState.Unknown,
@@ -77,6 +69,8 @@ data class RoomDetailViewState(
         val threadNotificationBadgeState: ThreadNotificationBadgeState = ThreadNotificationBadgeState(),
         val typingUsers: List<SenderInfo>? = null,
         val isSharingLiveLocation: Boolean = false,
+        val showKeyboardWhenPresented: Boolean = false,
+        val sharedData: SharedData? = null,
 ) : MavericksState {
 
     constructor(args: TimelineArgs) : this(
@@ -86,7 +80,9 @@ data class RoomDetailViewState(
             // Also highlight the target event, if any
             highlightedEventId = args.eventId,
             switchToParentSpace = args.switchToParentSpace,
-            rootThreadEventId = args.threadTimelineArgs?.rootThreadEventId
+            rootThreadEventId = args.threadTimelineArgs?.rootThreadEventId,
+            showKeyboardWhenPresented = args.threadTimelineArgs?.showKeyboard.orFalse(),
+            sharedData = args.sharedData,
     )
 
     fun isCallOptionAvailable(): Boolean {

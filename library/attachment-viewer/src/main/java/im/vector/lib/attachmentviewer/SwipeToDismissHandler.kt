@@ -1,18 +1,9 @@
 /*
- * Copyright (c) 2020 New Vector Ltd
- * Copyright (C) 2018 stfalcon.com
+ * Copyright 2020-2024 New Vector Ltd.
+ * Copyright 2018 stfalcon.com
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.lib.attachmentviewer
@@ -96,31 +87,27 @@ class SwipeToDismissHandler(
                 .setDuration(ANIMATION_DURATION)
                 .setInterpolator(AccelerateInterpolator())
                 .setUpdateListener { onSwipeViewMove(swipeView.translationY, translationLimit) }
-                .setAnimatorListener(onAnimationEnd = {
+                .setAnimatorEndListener {
                     if (translationTo != 0f) {
                         onDismiss()
                     }
 
                     // remove the update listener, otherwise it will be saved on the next animation execution:
                     swipeView.animate().setUpdateListener(null)
-                })
+                }
                 .start()
     }
 }
 
-internal fun ViewPropertyAnimator.setAnimatorListener(
-        onAnimationEnd: ((Animator?) -> Unit)? = null,
-        onAnimationStart: ((Animator?) -> Unit)? = null
-) = this.setListener(
+private fun ViewPropertyAnimator.setAnimatorEndListener(
+        onAnimationEnd: () -> Unit,
+) = setListener(
         object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator?) {
-                onAnimationEnd?.invoke(animation)
+            override fun onAnimationEnd(animation: Animator) {
+                onAnimationEnd()
             }
+        }
+)
 
-            override fun onAnimationStart(animation: Animator?) {
-                onAnimationStart?.invoke(animation)
-            }
-        })
-
-internal val View?.hitRect: Rect
-    get() = Rect().also { this?.getHitRect(it) }
+private val View.hitRect: Rect
+    get() = Rect().also { getHitRect(it) }

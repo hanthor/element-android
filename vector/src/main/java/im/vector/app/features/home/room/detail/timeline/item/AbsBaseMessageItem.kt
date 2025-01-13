@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.detail.timeline.item
@@ -40,7 +31,8 @@ import im.vector.app.features.home.room.detail.timeline.TimelineEventController
 import im.vector.app.features.home.room.detail.timeline.view.TimelineMessageLayoutRenderer
 import im.vector.app.features.reactions.widget.ReactionButton
 import im.vector.app.features.themes.ThemeUtils
-import org.matrix.android.sdk.api.session.crypto.model.RoomEncryptionTrustLevel
+import im.vector.lib.strings.CommonPlurals
+import im.vector.lib.strings.CommonStrings
 import org.matrix.android.sdk.api.session.room.send.SendState
 
 private const val MAX_REACTIONS_TO_SHOW = 8
@@ -80,17 +72,7 @@ abstract class AbsBaseMessageItem<H : AbsBaseMessageItem.Holder>(@LayoutRes layo
     override fun bind(holder: H) {
         super.bind(holder)
         renderReactions(holder, baseAttributes.informationData.reactionsSummary)
-        when (baseAttributes.informationData.e2eDecoration) {
-            E2EDecoration.NONE -> {
-                holder.e2EDecorationView.render(null)
-            }
-            E2EDecoration.WARN_IN_CLEAR,
-            E2EDecoration.WARN_SENT_BY_UNVERIFIED,
-            E2EDecoration.WARN_SENT_BY_UNKNOWN -> {
-                holder.e2EDecorationView.render(RoomEncryptionTrustLevel.Warning)
-            }
-        }
-
+        holder.e2EDecorationView.renderE2EDecoration(baseAttributes.informationData.e2eDecoration)
         holder.view.onClick(baseAttributes.itemClickListener)
         holder.view.setOnLongClickListener(baseAttributes.itemLongClickListener)
         (holder.view as? TimelineMessageLayoutRenderer)?.renderMessageLayout(baseAttributes.informationData.messageLayout)
@@ -121,13 +103,13 @@ abstract class AbsBaseMessageItem<H : AbsBaseMessageItem.Holder>(@LayoutRes layo
             if (reactions.count() > MAX_REACTIONS_TO_SHOW) {
                 val showReactionsTextView = createReactionTextView(holder)
                 if (reactionsSummary.showAll) {
-                    showReactionsTextView.setText(R.string.message_reaction_show_less)
+                    showReactionsTextView.setText(CommonStrings.message_reaction_show_less)
                     showReactionsTextView.onClick {
                         baseAttributes.reactionsSummaryEvents?.onShowLessClicked?.invoke()
                     }
                 } else {
                     val moreCount = reactions.count() - MAX_REACTIONS_TO_SHOW
-                    showReactionsTextView.text = holder.view.resources.getQuantityString(R.plurals.message_reaction_show_more, moreCount, moreCount)
+                    showReactionsTextView.text = holder.view.resources.getQuantityString(CommonPlurals.message_reaction_show_more, moreCount, moreCount)
                     showReactionsTextView.onClick {
                         baseAttributes.reactionsSummaryEvents?.onShowMoreClicked?.invoke()
                     }
@@ -146,11 +128,11 @@ abstract class AbsBaseMessageItem<H : AbsBaseMessageItem.Holder>(@LayoutRes layo
     }
 
     private fun createReactionTextView(holder: H): TextView {
-        return TextView(ContextThemeWrapper(holder.view.context, R.style.TimelineReactionView)).apply {
+        return TextView(ContextThemeWrapper(holder.view.context, im.vector.lib.ui.styles.R.style.TimelineReactionView)).apply {
             background = getDrawable(context, R.drawable.reaction_rounded_rect_shape_off)
-            TextViewCompat.setTextAppearance(this, R.style.TextAppearance_Vector_Micro)
+            TextViewCompat.setTextAppearance(this, im.vector.lib.ui.styles.R.style.TextAppearance_Vector_Micro)
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(ThemeUtils.getColor(context, R.attr.vctr_content_secondary))
+            setTextColor(ThemeUtils.getColor(context, im.vector.lib.ui.styles.R.attr.vctr_content_secondary))
         }
     }
 

@@ -291,7 +291,7 @@
     <string name="room_settings_category_advanced_title">Talqayt</string>
     <string name="room_settings_labs_pref_title">Tinarimin</string>
     <string name="settings_theme">Asentel</string>
-    <string name="encryption_information_device_id">Asulay n tqimit</string>
+    <string name="device_manager_session_details_session_id">Asulay n tqimit</string>
     <string name="encryption_information_device_key">Tasarut n tɣimit</string>
     <string name="encryption_export_e2e_room_keys">Sifeḍ tisura n texxamt E2E</string>
     <string name="encryption_export_room_keys">Sifeḍ tisura n texxamt</string>
@@ -463,8 +463,6 @@
     <string name="security_prompt_text">Senqed iman-ik•im d wiyaḍ akken ad qqimen yidiwenniyen-ik•im d iɣellsanen</string>
     <string name="use_recovery_key">Seqdec tasarut n uɛeddi</string>
     <string name="unencrypted">Ur yettwawgelhen ara</string>
-    <string name="review_logins">Senqed ansi i d-tkecmeḍ</string>
-    <string name="verify_other_sessions">Senqed akk tiqimiyin-ik·im i wakken ad tḍemneḍ amiḍan-ik·m &amp; yiznan d iɣelsanen</string>
     <string name="cross_signing_verify_by_text">Senqed s ufus s ttawil n uḍris</string>
     <string name="identity_server_set_alternative_submit">Azen</string>
     <string name="bottom_sheet_setup_secure_backup_submit">Sbadu</string>

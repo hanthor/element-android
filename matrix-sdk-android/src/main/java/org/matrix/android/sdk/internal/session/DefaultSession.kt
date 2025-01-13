@@ -57,7 +57,6 @@ import org.matrix.android.sdk.api.session.search.SearchService
 import org.matrix.android.sdk.api.session.securestorage.SharedSecretStorageService
 import org.matrix.android.sdk.api.session.signout.SignOutService
 import org.matrix.android.sdk.api.session.space.SpaceService
-import org.matrix.android.sdk.api.session.sync.FilterService
 import org.matrix.android.sdk.api.session.sync.SyncService
 import org.matrix.android.sdk.api.session.terms.TermsService
 import org.matrix.android.sdk.api.session.thirdparty.ThirdPartyService
@@ -67,8 +66,8 @@ import org.matrix.android.sdk.api.session.widgets.WidgetService
 import org.matrix.android.sdk.api.util.appendParamToUrl
 import org.matrix.android.sdk.internal.auth.SSO_UIA_FALLBACK_PATH
 import org.matrix.android.sdk.internal.auth.SessionParamsStore
-import org.matrix.android.sdk.internal.crypto.DefaultCryptoService
 import org.matrix.android.sdk.internal.database.tools.RealmDebugTools
+import org.matrix.android.sdk.internal.di.Authenticated
 import org.matrix.android.sdk.internal.di.ContentScannerDatabase
 import org.matrix.android.sdk.internal.di.CryptoDatabase
 import org.matrix.android.sdk.internal.di.IdentityDatabase
@@ -97,7 +96,6 @@ internal class DefaultSession @Inject constructor(
         private val roomService: Lazy<RoomService>,
         private val roomDirectoryService: Lazy<RoomDirectoryService>,
         private val userService: Lazy<UserService>,
-        private val filterService: Lazy<FilterService>,
         private val federationService: Lazy<FederationService>,
         private val cacheService: Lazy<CacheService>,
         private val signOutService: Lazy<SignOutService>,
@@ -105,7 +103,7 @@ internal class DefaultSession @Inject constructor(
         private val pushersService: Lazy<PushersService>,
         private val termsService: Lazy<TermsService>,
         private val searchService: Lazy<SearchService>,
-        private val cryptoService: Lazy<DefaultCryptoService>,
+        private val cryptoService: Lazy<CryptoService>,
         private val defaultFileService: Lazy<FileService>,
         private val permalinkService: Lazy<PermalinkService>,
         private val profileService: Lazy<ProfileService>,
@@ -134,6 +132,8 @@ internal class DefaultSession @Inject constructor(
         private val eventStreamService: Lazy<EventStreamService>,
         @UnauthenticatedWithCertificate
         private val unauthenticatedWithCertificateOkHttpClient: Lazy<OkHttpClient>,
+        @Authenticated
+        private val authenticatedOkHttpClient: Lazy<OkHttpClient>,
         private val sessionState: SessionState,
 ) : Session,
         GlobalErrorHandler.Listener {
@@ -147,7 +147,7 @@ internal class DefaultSession @Inject constructor(
     override fun open() {
         sessionState.setIsOpen(true)
         globalErrorHandler.listener = this
-        cryptoService.get().ensureDevice()
+        cryptoService.get().start()
         uiHandler.post {
             lifecycleObservers.forEach {
                 it.onSessionStarted(this)
@@ -209,7 +209,6 @@ internal class DefaultSession @Inject constructor(
     override fun roomDirectoryService(): RoomDirectoryService = roomDirectoryService.get()
     override fun userService(): UserService = userService.get()
     override fun signOutService(): SignOutService = signOutService.get()
-    override fun filterService(): FilterService = filterService.get()
     override fun pushRuleService(): PushRuleService = pushRuleService.get()
     override fun pushersService(): PushersService = pushersService.get()
     override fun eventService(): EventService = eventService.get()
@@ -236,6 +235,10 @@ internal class DefaultSession @Inject constructor(
 
     override fun getOkHttpClient(): OkHttpClient {
         return unauthenticatedWithCertificateOkHttpClient.get()
+    }
+
+    override fun getAuthenticatedOkHttpClient(): OkHttpClient {
+        return authenticatedOkHttpClient.get()
     }
 
     override fun addListener(listener: Session.Listener) {

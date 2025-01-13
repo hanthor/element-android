@@ -23,6 +23,7 @@ import org.matrix.android.sdk.api.MatrixPatterns
 import org.matrix.android.sdk.api.MatrixPatterns.getServerName
 import org.matrix.android.sdk.api.auth.AuthenticationService
 import org.matrix.android.sdk.api.auth.LoginType
+import org.matrix.android.sdk.api.auth.SSOAction
 import org.matrix.android.sdk.api.auth.data.Credentials
 import org.matrix.android.sdk.api.auth.data.HomeServerConnectionConfig
 import org.matrix.android.sdk.api.auth.data.LoginFlowResult
@@ -39,9 +40,11 @@ import org.matrix.android.sdk.internal.auth.data.WebClientConfig
 import org.matrix.android.sdk.internal.auth.db.PendingSessionData
 import org.matrix.android.sdk.internal.auth.login.DefaultLoginWizard
 import org.matrix.android.sdk.internal.auth.login.DirectLoginTask
+import org.matrix.android.sdk.internal.auth.login.QrLoginTokenTask
 import org.matrix.android.sdk.internal.auth.registration.DefaultRegistrationWizard
 import org.matrix.android.sdk.internal.auth.version.Versions
 import org.matrix.android.sdk.internal.auth.version.doesServerSupportLogoutDevices
+import org.matrix.android.sdk.internal.auth.version.doesServerSupportQrCodeLogin
 import org.matrix.android.sdk.internal.auth.version.isLoginAndRegistrationSupportedBySdk
 import org.matrix.android.sdk.internal.auth.version.isSupportedBySdk
 import org.matrix.android.sdk.internal.di.Unauthenticated
@@ -62,7 +65,8 @@ internal class DefaultAuthenticationService @Inject constructor(
         private val sessionCreator: SessionCreator,
         private val pendingSessionStore: PendingSessionStore,
         private val getWellknownTask: GetWellknownTask,
-        private val directLoginTask: DirectLoginTask
+        private val directLoginTask: DirectLoginTask,
+        private val qrLoginTokenTask: QrLoginTokenTask
 ) : AuthenticationService {
 
     private var pendingSessionData: PendingSessionData? = pendingSessionStore.getPendingSessionData()
@@ -85,7 +89,7 @@ internal class DefaultAuthenticationService @Inject constructor(
         return getLoginFlow(homeServerConnectionConfig)
     }
 
-    override fun getSsoUrl(redirectUrl: String, deviceId: String?, providerId: String?): String? {
+    override fun getSsoUrl(redirectUrl: String, deviceId: String?, providerId: String?, action: SSOAction): String? {
         val homeServerUrlBase = getHomeServerUrlBase() ?: return null
 
         return buildString {
@@ -100,6 +104,9 @@ internal class DefaultAuthenticationService @Inject constructor(
                 // But https://github.com/matrix-org/synapse/issues/5755
                 appendParamToUrl("device_id", it)
             }
+
+            // unstable MSC3824 action param
+            appendParamToUrl("org.matrix.msc3824.action", action.toString())
         }
     }
 
@@ -289,13 +296,23 @@ internal class DefaultAuthenticationService @Inject constructor(
         val loginFlowResponse = executeRequest(null) {
             authAPI.getLoginFlows()
         }
+
+        // If an m.login.sso flow is present that is flagged as being for MSC3824 OIDC compatibility then we only return that flow
+        val oidcCompatibilityFlow = loginFlowResponse.flows.orEmpty().firstOrNull { it.type == "m.login.sso" && it.delegatedOidcCompatibility == true }
+        val flows = if (oidcCompatibilityFlow != null) listOf(oidcCompatibilityFlow) else loginFlowResponse.flows
+
+        val supportsGetLoginTokenFlow = loginFlowResponse.flows.orEmpty().firstOrNull { it.type == "m.login.token" && it.getLoginToken == true } != null
+
+        @Suppress("DEPRECATION")
         return LoginFlowResult(
-                supportedLoginTypes = loginFlowResponse.flows.orEmpty().mapNotNull { it.type },
-                ssoIdentityProviders = loginFlowResponse.flows.orEmpty().firstOrNull { it.type == LoginFlowTypes.SSO }?.ssoIdentityProvider,
+                supportedLoginTypes = flows.orEmpty().mapNotNull { it.type },
+                ssoIdentityProviders = flows.orEmpty().firstOrNull { it.type == LoginFlowTypes.SSO }?.ssoIdentityProvider,
                 isLoginAndRegistrationSupported = versions.isLoginAndRegistrationSupportedBySdk(),
                 homeServerUrl = homeServerUrl,
                 isOutdatedHomeserver = !versions.isSupportedBySdk(),
-                isLogoutDevicesSupported = versions.doesServerSupportLogoutDevices()
+                hasOidcCompatibilityFlow = oidcCompatibilityFlow != null,
+                isLogoutDevicesSupported = versions.doesServerSupportLogoutDevices(),
+                isLoginWithQrSupported = supportsGetLoginTokenFlow || versions.doesServerSupportQrCodeLogin(),
         )
     }
 
@@ -398,6 +415,22 @@ internal class DefaultAuthenticationService @Inject constructor(
                         homeServerConnectionConfig = homeServerConnectionConfig,
                         userId = matrixId,
                         password = password,
+                        deviceName = initialDeviceName,
+                        deviceId = deviceId
+                )
+        )
+    }
+
+    override suspend fun loginUsingQrLoginToken(
+            homeServerConnectionConfig: HomeServerConnectionConfig,
+            loginToken: String,
+            initialDeviceName: String?,
+            deviceId: String?,
+    ): Session {
+        return qrLoginTokenTask.execute(
+                QrLoginTokenTask.Params(
+                        homeServerConnectionConfig = homeServerConnectionConfig,
+                        loginToken = loginToken,
                         deviceName = initialDeviceName,
                         deviceId = deviceId
                 )

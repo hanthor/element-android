@@ -17,7 +17,7 @@
 package org.matrix.android.sdk.internal.session.room.location
 
 import androidx.lifecycle.LiveData
-import androidx.lifecycle.Transformations
+import androidx.lifecycle.map
 import com.zhuinden.monarchy.Monarchy
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -73,7 +73,7 @@ internal class DefaultLocationSharingService @AssistedInject constructor(
         return sendLiveLocationTask.execute(params)
     }
 
-    override suspend fun startLiveLocationShare(timeoutMillis: Long, description: String): UpdateLiveLocationShareResult {
+    override suspend fun startLiveLocationShare(timeoutMillis: Long): UpdateLiveLocationShareResult {
         // Ensure to stop any active live before starting a new one
         if (checkIfExistingActiveLive()) {
             val result = stopLiveLocationShare()
@@ -84,7 +84,6 @@ internal class DefaultLocationSharingService @AssistedInject constructor(
         val params = StartLiveLocationShareTask.Params(
                 roomId = roomId,
                 timeoutMillis = timeoutMillis,
-                description = description
         )
         return startLiveLocationShareTask.execute(params)
     }
@@ -120,13 +119,13 @@ internal class DefaultLocationSharingService @AssistedInject constructor(
     }
 
     override fun getLiveLocationShareSummary(beaconInfoEventId: String): LiveData<Optional<LiveLocationShareAggregatedSummary>> {
-        return Transformations.map(
-                monarchy.findAllMappedWithChanges(
+        return monarchy
+                .findAllMappedWithChanges(
                         { LiveLocationShareAggregatedSummaryEntity.where(it, roomId = roomId, eventId = beaconInfoEventId) },
                         liveLocationShareAggregatedSummaryMapper
                 )
-        ) {
-            it.firstOrNull().toOptional()
-        }
+                .map {
+                    it.firstOrNull().toOptional()
+                }
     }
 }

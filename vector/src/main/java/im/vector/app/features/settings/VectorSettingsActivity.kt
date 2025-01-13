@@ -1,17 +1,8 @@
 /*
- * Copyright 2018 New Vector Ltd
+ * Copyright 2018-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 package im.vector.app.features.settings
 
@@ -32,8 +23,10 @@ import im.vector.app.databinding.ActivityVectorSettingsBinding
 import im.vector.app.features.discovery.DiscoverySettingsFragment
 import im.vector.app.features.navigation.SettingsActivityPayload
 import im.vector.app.features.settings.devices.VectorSettingsDevicesFragment
-import im.vector.app.features.settings.notifications.VectorSettingsNotificationPreferenceFragment
+import im.vector.app.features.settings.notifications.VectorSettingsNotificationFragment
 import im.vector.app.features.settings.threepids.ThreePidsSettingsFragment
+import im.vector.lib.core.utils.compat.getParcelableExtraCompat
+import im.vector.lib.strings.CommonStrings
 import org.matrix.android.sdk.api.failure.GlobalError
 import org.matrix.android.sdk.api.session.Session
 import timber.log.Timber
@@ -54,7 +47,7 @@ class VectorSettingsActivity : VectorBaseActivity<ActivityVectorSettingsBinding>
 
     override fun getCoordinatorLayout() = views.coordinatorLayout
 
-    override fun getTitleRes() = R.string.title_activity_settings
+    override fun getTitleRes() = CommonStrings.title_activity_settings
 
     private var keyToHighlight: String? = null
 
@@ -76,16 +69,22 @@ class VectorSettingsActivity : VectorBaseActivity<ActivityVectorSettingsBinding>
                     replaceFragment(views.vectorSettingsPage, VectorSettingsAdvancedSettingsFragment::class.java, null, FRAGMENT_TAG)
                 SettingsActivityPayload.SecurityPrivacy ->
                     replaceFragment(views.vectorSettingsPage, VectorSettingsSecurityPrivacyFragment::class.java, null, FRAGMENT_TAG)
-                SettingsActivityPayload.SecurityPrivacyManageSessions ->
+                SettingsActivityPayload.SecurityPrivacyManageSessions -> {
+                    val fragmentClass = if (vectorPreferences.isNewSessionManagerEnabled()) {
+                        im.vector.app.features.settings.devices.v2.VectorSettingsDevicesFragment::class.java
+                    } else {
+                        VectorSettingsDevicesFragment::class.java
+                    }
                     replaceFragment(
                             views.vectorSettingsPage,
-                            VectorSettingsDevicesFragment::class.java,
+                            fragmentClass,
                             null,
                             FRAGMENT_TAG
                     )
+                }
                 SettingsActivityPayload.Notifications -> {
                     requestHighlightPreferenceKeyOnResume(VectorPreferences.SETTINGS_ENABLE_THIS_DEVICE_PREFERENCE_KEY)
-                    replaceFragment(views.vectorSettingsPage, VectorSettingsNotificationPreferenceFragment::class.java, null, FRAGMENT_TAG)
+                    replaceFragment(views.vectorSettingsPage, VectorSettingsNotificationFragment::class.java, null, FRAGMENT_TAG)
                 }
                 is SettingsActivityPayload.DiscoverySettings -> {
                     replaceFragment(views.vectorSettingsPage, DiscoverySettingsFragment::class.java, payload, FRAGMENT_TAG)
@@ -115,7 +114,7 @@ class VectorSettingsActivity : VectorBaseActivity<ActivityVectorSettingsBinding>
                 supportFragmentManager.fragmentFactory.instantiate(classLoader, it)
             }
         } catch (e: Throwable) {
-            showSnackbar(getString(R.string.not_implemented))
+            showSnackbar(getString(CommonStrings.not_implemented))
             Timber.e(e)
             null
         }
@@ -194,8 +193,8 @@ class VectorSettingsActivity : VectorBaseActivity<ActivityVectorSettingsBinding>
     }
 }
 
-private fun <T : Parcelable> Activity.readPayload(default: T): T {
-    return intent.getParcelableExtra(KEY_ACTIVITY_PAYLOAD) ?: default
+private inline fun <reified T : Parcelable> Activity.readPayload(default: T): T {
+    return intent.getParcelableExtraCompat<T>(KEY_ACTIVITY_PAYLOAD) ?: default
 }
 
 private fun <T : Parcelable> Intent.applyPayload(payload: T): Intent {

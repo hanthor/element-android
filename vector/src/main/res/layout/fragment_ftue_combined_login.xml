@@ -83,7 +83,8 @@
             app:layout_constraintBottom_toTopOf="@id/selectedServerDescription"
             app:layout_constraintEnd_toStartOf="@id/editServerButton"
             app:layout_constraintStart_toStartOf="@id/loginGutterStart"
-            app:layout_constraintTop_toBottomOf="@id/chooseYourServerHeader" />
+            app:layout_constraintTop_toBottomOf="@id/chooseYourServerHeader"
+            tools:text="server.org" />
 
         <TextView
             android:id="@+id/selectedServerDescription"
@@ -194,9 +195,9 @@
             android:text="@string/ftue_auth_forgot_password"
             android:textAllCaps="true"
             android:textColor="?colorSecondary"
-            app:layout_constraintHorizontal_bias="1"
             app:layout_constraintBottom_toTopOf="@id/actionSpacing"
             app:layout_constraintEnd_toEndOf="@id/loginGutterEnd"
+            app:layout_constraintHorizontal_bias="1"
             app:layout_constraintStart_toStartOf="@id/loginGutterStart"
             app:layout_constraintTop_toBottomOf="@id/loginPasswordInput" />
 

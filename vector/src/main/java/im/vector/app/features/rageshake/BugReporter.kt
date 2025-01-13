@@ -1,17 +1,8 @@
 /*
- * Copyright 2018 New Vector Ltd
+ * Copyright 2018-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.rageshake
@@ -26,12 +17,12 @@ import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.FragmentActivity
 import com.squareup.moshi.Types
 import im.vector.app.BuildConfig
-import im.vector.app.R
+import im.vector.app.config.R
 import im.vector.app.core.di.ActiveSessionHolder
 import im.vector.app.core.extensions.getAllChildFragments
 import im.vector.app.core.extensions.toOnOff
 import im.vector.app.core.resources.BuildMeta
-import im.vector.app.features.settings.VectorLocale
+import im.vector.app.features.settings.VectorLocaleProvider
 import im.vector.app.features.settings.VectorPreferences
 import im.vector.app.features.settings.devtools.GossipingEventsSerializer
 import im.vector.app.features.settings.locale.SystemLocaleProvider
@@ -80,6 +71,7 @@ class BugReporter @Inject constructor(
         private val buildMeta: BuildMeta,
         private val processInfo: ProcessInfo,
         private val sdkIntProvider: BuildVersionSdkIntProvider,
+        private val vectorLocale: VectorLocaleProvider,
 ) {
     var inMultiWindowMode = false
 
@@ -241,6 +233,9 @@ class BugReporter @Inject constructor(
                 activeSessionHolder.getSafeActiveSession()
                         ?.takeIf { !mIsCancelled && withKeyRequestHistory }
                         ?.cryptoService()
+                        ?.takeIf {
+                            it.supportKeyRequestInspection()
+                        }
                         ?.getGossipingEvents()
                         ?.let { GossipingEventsSerializer().serialize(it) }
                         ?.toByteArray()
@@ -260,8 +255,8 @@ class BugReporter @Inject constructor(
 
                 activeSessionHolder.getSafeActiveSession()?.let { session ->
                     userId = session.myUserId
-                    deviceId = session.sessionParams.deviceId ?: "undefined"
-                    olmVersion = session.cryptoService().getCryptoVersion(context, true)
+                    deviceId = session.sessionParams.deviceId
+                    olmVersion = Matrix.getCryptoVersion(true)
                 }
 
                 if (!mIsCancelled) {
@@ -282,7 +277,7 @@ class BugReporter @Inject constructor(
                             .addFormDataPart("user_id", userId)
                             .addFormDataPart("can_contact", canContact.toString())
                             .addFormDataPart("device_id", deviceId)
-                            .addFormDataPart("version", versionProvider.getVersion(longFormat = true, useBuildNumber = false))
+                            .addFormDataPart("version", versionProvider.getVersion(longFormat = true))
                             .addFormDataPart("branch_name", buildMeta.gitBranchName)
                             .addFormDataPart("matrix_sdk_version", Matrix.getSdkVersion())
                             .addFormDataPart("olm_version", olmVersion)
@@ -294,7 +289,7 @@ class BugReporter @Inject constructor(
                                     Build.VERSION.INCREMENTAL + "-" + Build.VERSION.CODENAME
                             )
                             .addFormDataPart("locale", Locale.getDefault().toString())
-                            .addFormDataPart("app_language", VectorLocale.applicationLocale.toString())
+                            .addFormDataPart("app_language", vectorLocale.applicationLocale.toString())
                             .addFormDataPart("default_app_language", systemLocaleProvider.getSystemLocale().toString())
                             .addFormDataPart("theme", ThemeUtils.getApplicationTheme(context))
                             .addFormDataPart("server_version", serverVersion)
@@ -303,11 +298,6 @@ class BugReporter @Inject constructor(
                                     addFormDataPart(name, value)
                                 }
                             }
-
-                    val buildNumber = buildMeta.buildNumber
-                    if (buildNumber.isNotEmpty() && buildNumber != "0") {
-                        builder.addFormDataPart("build_number", buildNumber)
-                    }
 
                     // add the gzipped files
                     for (file in gzippedFiles) {
@@ -524,12 +514,12 @@ class BugReporter @Inject constructor(
         // As per https://github.com/matrix-org/rageshake
         // app: Identifier for the application (eg 'riot-web').
         // Should correspond to a mapping configured in the configuration file for github issue reporting to work.
-        // (see R.string.bug_report_url for configured RS server)
+        // (see CommonStrings.bug_report_url for configured RS server)
         return context.getString(
                 when (reportType) {
                     ReportType.AUTO_UISI_SENDER,
-                    ReportType.AUTO_UISI -> R.string.bug_report_auto_uisi_app_name
-                    else -> R.string.bug_report_app_name
+                    ReportType.AUTO_UISI -> im.vector.app.config.R.string.bug_report_auto_uisi_app_name
+                    else -> im.vector.app.config.R.string.bug_report_app_name
                 }
         )
     }

@@ -22,6 +22,7 @@ import org.matrix.android.sdk.api.util.JsonDict
 
 /**
  * This class represents the decryption result.
+ * It's serialized in eventEntity to remember the decryption result
  */
 @JsonClass(generateAdapter = true)
 data class OlmDecryptionResult(
@@ -44,5 +45,15 @@ data class OlmDecryptionResult(
         /**
          * Devices which forwarded this session to us (normally empty).
          */
-        @Json(name = "forwardingCurve25519KeyChain") val forwardingCurve25519KeyChain: List<String>? = null
+        @Json(name = "forwardingCurve25519KeyChain") val forwardingCurve25519KeyChain: List<String>? = null,
+
+        /**
+         * True if the key used to decrypt is considered safe (trusted).
+         */
+        @Json(name = "key_safety") val isSafe: Boolean? = null,
+
+        /**
+         * Authenticity info for that message.
+         */
+        @Json(name = "verification_state") val verificationState: MessageVerificationState? = null,
 )

@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2020 New Vector Ltd
- * Copyright (C) 2018 stfalcon.com
+ * Copyright 2020-2024 New Vector Ltd.
+ * Copyright 2018 stfalcon.com
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.lib.attachmentviewer
 
-import android.annotation.SuppressLint
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -32,7 +22,6 @@ import android.view.WindowManager
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.core.view.GestureDetectorCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
@@ -40,6 +29,7 @@ import androidx.core.view.updatePadding
 import androidx.transition.TransitionManager
 import androidx.viewpager2.widget.ViewPager2
 import im.vector.lib.attachmentviewer.databinding.ActivityAttachmentViewerBinding
+import im.vector.lib.ui.styles.R
 import java.lang.ref.WeakReference
 import kotlin.math.abs
 
@@ -72,7 +62,7 @@ abstract class AttachmentViewerActivity : AppCompatActivity(), AttachmentEventLi
     private lateinit var swipeDismissHandler: SwipeToDismissHandler
     private lateinit var directionDetector: SwipeDirectionDetector
     private lateinit var scaleDetector: ScaleGestureDetector
-    private lateinit var gestureDetector: GestureDetectorCompat
+    private lateinit var gestureDetector: GestureDetector
 
     var currentPosition = 0
         private set
@@ -136,7 +126,6 @@ abstract class AttachmentViewerActivity : AppCompatActivity(), AttachmentEventLi
         }
     }
 
-    @Suppress("DEPRECATION")
     private fun setDecorViewFullScreen() {
         // This is important for the dispatchTouchEvent, if not we must correct
         // the touch coordinates
@@ -144,22 +133,20 @@ abstract class AttachmentViewerActivity : AppCompatActivity(), AttachmentEventLi
             // New API instead of SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN and SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
             window.setDecorFitsSystemWindows(false)
             // New API instead of SYSTEM_UI_FLAG_IMMERSIVE
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                window.decorView.windowInsetsController?.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            } else {
-                @SuppressLint("WrongConstant")
-                window.decorView.windowInsetsController?.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_BARS_BY_SWIPE
-            }
+            window.decorView.windowInsetsController?.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             // New API instead of FLAG_TRANSLUCENT_STATUS
             window.statusBarColor = ContextCompat.getColor(this, R.color.half_transparent_status_bar)
             // new API instead of FLAG_TRANSLUCENT_NAVIGATION
             window.navigationBarColor = ContextCompat.getColor(this, R.color.half_transparent_status_bar)
         } else {
+            @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = (
                     View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                             or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                             or View.SYSTEM_UI_FLAG_IMMERSIVE)
+            @Suppress("DEPRECATION")
             window.setFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS, WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS)
+            @Suppress("DEPRECATION")
             window.setFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION, WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION)
         }
     }
@@ -313,16 +300,12 @@ abstract class AttachmentViewerActivity : AppCompatActivity(), AttachmentEventLi
             ScaleGestureDetector(this, ScaleGestureDetector.SimpleOnScaleGestureListener())
 
     private fun createGestureDetector() =
-            GestureDetectorCompat(this, object : GestureDetector.SimpleOnGestureListener() {
+            GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
                 override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
                     if (isImagePagerIdle) {
                         handleSingleTap(e, isOverlayWasClicked)
                     }
                     return false
-                }
-
-                override fun onDoubleTap(e: MotionEvent?): Boolean {
-                    return super.onDoubleTap(e)
                 }
             })
 
@@ -344,7 +327,6 @@ abstract class AttachmentViewerActivity : AppCompatActivity(), AttachmentEventLi
                 ?.handleCommand(commands)
     }
 
-    @Suppress("DEPRECATION")
     private fun hideSystemUI() {
         systemUiVisibility = false
         // Enables regular immersive mode.
@@ -356,17 +338,13 @@ abstract class AttachmentViewerActivity : AppCompatActivity(), AttachmentEventLi
             // new API instead of SYSTEM_UI_FLAG_HIDE_NAVIGATION
             window.decorView.windowInsetsController?.hide(WindowInsets.Type.navigationBars())
             // New API instead of SYSTEM_UI_FLAG_IMMERSIVE
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                window.decorView.windowInsetsController?.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            } else {
-                @SuppressLint("WrongConstant")
-                window.decorView.windowInsetsController?.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_BARS_BY_SWIPE
-            }
+            window.decorView.windowInsetsController?.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             // New API instead of FLAG_TRANSLUCENT_STATUS
             window.statusBarColor = ContextCompat.getColor(this, R.color.half_transparent_status_bar)
             // New API instead of FLAG_TRANSLUCENT_NAVIGATION
             window.navigationBarColor = ContextCompat.getColor(this, R.color.half_transparent_status_bar)
         } else {
+            @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_IMMERSIVE
                     // Set the content to appear under the system bars so that the
                     // content doesn't resize when the system bars hide and show.
@@ -381,13 +359,13 @@ abstract class AttachmentViewerActivity : AppCompatActivity(), AttachmentEventLi
 
     // Shows the system bars by removing all the flags
 // except for the ones that make the content appear under the system bars.
-    @Suppress("DEPRECATION")
     private fun showSystemUI() {
         systemUiVisibility = true
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // New API instead of SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN and SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
             window.setDecorFitsSystemWindows(false)
         } else {
+            @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                     or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                     or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN)

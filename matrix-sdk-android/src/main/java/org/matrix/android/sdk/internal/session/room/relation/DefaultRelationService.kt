@@ -16,7 +16,7 @@
 package org.matrix.android.sdk.internal.session.room.relation
 
 import androidx.lifecycle.LiveData
-import androidx.lifecycle.Transformations
+import androidx.lifecycle.map
 import com.zhuinden.monarchy.Monarchy
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -105,19 +105,21 @@ internal class DefaultRelationService @AssistedInject constructor(
             targetEvent: TimelineEvent,
             msgType: String,
             newBodyText: CharSequence,
+            newFormattedBodyText: CharSequence?,
             newBodyAutoMarkdown: Boolean,
             compatibilityBodyText: String
     ): Cancelable {
-        return eventEditor.editTextMessage(targetEvent, msgType, newBodyText, newBodyAutoMarkdown, compatibilityBodyText)
+        return eventEditor.editTextMessage(targetEvent, msgType, newBodyText, newFormattedBodyText, newBodyAutoMarkdown, compatibilityBodyText)
     }
 
     override fun editReply(
             replyToEdit: TimelineEvent,
             originalTimelineEvent: TimelineEvent,
-            newBodyText: String,
+            newBodyText: CharSequence,
+            newFormattedBodyText: String?,
             compatibilityBodyText: String
     ): Cancelable {
-        return eventEditor.editReply(replyToEdit, originalTimelineEvent, newBodyText, compatibilityBodyText)
+        return eventEditor.editReply(replyToEdit, originalTimelineEvent, newBodyText, newFormattedBodyText, compatibilityBodyText)
     }
 
     override suspend fun fetchEditHistory(eventId: String): List<Event> {
@@ -127,6 +129,7 @@ internal class DefaultRelationService @AssistedInject constructor(
     override fun replyToMessage(
             eventReplied: TimelineEvent,
             replyText: CharSequence,
+            replyFormattedText: CharSequence?,
             autoMarkdown: Boolean,
             showInThread: Boolean,
             rootThreadEventId: String?
@@ -135,6 +138,7 @@ internal class DefaultRelationService @AssistedInject constructor(
                 roomId = roomId,
                 eventReplied = eventReplied,
                 replyText = replyText,
+                replyTextFormatted = replyFormattedText,
                 autoMarkdown = autoMarkdown,
                 rootThreadEventId = rootThreadEventId,
                 showInThread = showInThread
@@ -159,7 +163,7 @@ internal class DefaultRelationService @AssistedInject constructor(
                 { EventAnnotationsSummaryEntity.where(it, roomId, eventId) },
                 { it.asDomain() }
         )
-        return Transformations.map(liveData) { results ->
+        return liveData.map { results ->
             results.firstOrNull().toOptional()
         }
     }
@@ -178,6 +182,7 @@ internal class DefaultRelationService @AssistedInject constructor(
                     roomId = roomId,
                     eventReplied = eventReplied,
                     replyText = replyInThreadText,
+                    replyTextFormatted = formattedText,
                     autoMarkdown = autoMarkdown,
                     rootThreadEventId = rootThreadEventId,
                     showInThread = false

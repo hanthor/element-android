@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 @file:Suppress("DEPRECATION")
@@ -22,18 +13,24 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.drawable.Drawable
+import android.text.TextUtils
 import android.text.style.ReplacementSpan
 import android.widget.TextView
 import androidx.annotation.UiThread
+import androidx.core.content.ContextCompat
 import com.bumptech.glide.request.target.SimpleTarget
 import com.bumptech.glide.request.transition.Transition
 import com.google.android.material.chip.ChipDrawable
 import im.vector.app.R
+import im.vector.app.core.extensions.isMatrixId
 import im.vector.app.core.glide.GlideRequests
 import im.vector.app.features.displayname.getBestName
 import im.vector.app.features.home.AvatarRenderer
 import im.vector.app.features.themes.ThemeUtils
+import im.vector.lib.strings.CommonStrings
+import org.matrix.android.sdk.api.extensions.orTrue
 import org.matrix.android.sdk.api.session.room.send.MatrixItemSpan
 import org.matrix.android.sdk.api.util.MatrixItem
 import java.lang.ref.WeakReference
@@ -98,6 +95,15 @@ class PillImageSpan(
         val transY: Int = y + (fm.descent + fm.ascent - pillDrawable.bounds.bottom) / 2
         canvas.save()
         canvas.translate(x, transY.toFloat())
+
+        val rect = Rect()
+        canvas.getClipBounds(rect)
+        val maxWidth = rect.right
+        if (pillDrawable.intrinsicWidth > maxWidth) {
+            pillDrawable.setBounds(0, 0, maxWidth, pillDrawable.intrinsicHeight)
+            pillDrawable.ellipsize = TextUtils.TruncateAt.END
+        }
+
         pillDrawable.draw(canvas)
         canvas.restore()
     }
@@ -110,24 +116,42 @@ class PillImageSpan(
     // Private methods *****************************************************************************
 
     private fun createChipDrawable(): ChipDrawable {
-        val textPadding = context.resources.getDimension(R.dimen.pill_text_padding)
-        val icon = try {
-            avatarRenderer.getCachedDrawable(glideRequests, matrixItem)
-        } catch (exception: Exception) {
-            avatarRenderer.getPlaceholderDrawable(matrixItem)
+        val textPadding = context.resources.getDimension(im.vector.lib.ui.styles.R.dimen.pill_text_padding)
+        val icon = when {
+            matrixItem is MatrixItem.RoomAliasItem && matrixItem.avatarUrl.isNullOrEmpty() &&
+                    matrixItem.displayName == context.getString(CommonStrings.pill_message_in_room, matrixItem.id) -> {
+                ContextCompat.getDrawable(context, R.drawable.ic_permalink_round)
+            }
+            matrixItem is MatrixItem.RoomItem && matrixItem.avatarUrl.isNullOrEmpty() && (
+                    matrixItem.displayName == context.getString(CommonStrings.pill_message_in_unknown_room) ||
+                            matrixItem.displayName == context.getString(CommonStrings.pill_message_unknown_room_or_space) ||
+                            matrixItem.displayName == context.getString(CommonStrings.pill_message_from_unknown_user)
+                    ) -> {
+                ContextCompat.getDrawable(context, R.drawable.ic_permalink_round)
+            }
+            matrixItem is MatrixItem.UserItem && matrixItem.avatarUrl.isNullOrEmpty() && matrixItem.displayName?.isMatrixId().orTrue() -> {
+                ContextCompat.getDrawable(context, R.drawable.ic_user_round)
+            }
+            else -> {
+                try {
+                    avatarRenderer.getCachedDrawable(glideRequests, matrixItem)
+                } catch (exception: Exception) {
+                    avatarRenderer.getPlaceholderDrawable(matrixItem)
+                }
+            }
         }
 
         return ChipDrawable.createFromResource(context, R.xml.pill_view).apply {
             text = matrixItem.getBestName()
             textEndPadding = textPadding
             textStartPadding = textPadding
-            setChipMinHeightResource(R.dimen.pill_min_height)
-            setChipIconSizeResource(R.dimen.pill_avatar_size)
+            setChipMinHeightResource(im.vector.lib.ui.styles.R.dimen.pill_min_height)
+            setChipIconSizeResource(im.vector.lib.ui.styles.R.dimen.pill_avatar_size)
             chipIcon = icon
             if (matrixItem is MatrixItem.EveryoneInRoomItem) {
-                chipBackgroundColor = ColorStateList.valueOf(ThemeUtils.getColor(context, R.attr.colorError))
+                chipBackgroundColor = ColorStateList.valueOf(ThemeUtils.getColor(context, com.google.android.material.R.attr.colorError))
                 // setTextColor API does not exist right now for ChipDrawable, use textAppearance
-                setTextAppearanceResource(R.style.TextAppearance_Vector_Body_OnError)
+                setTextAppearanceResource(im.vector.lib.ui.styles.R.style.TextAppearance_Vector_Body_OnError)
             }
             setBounds(0, 0, intrinsicWidth, intrinsicHeight)
         }

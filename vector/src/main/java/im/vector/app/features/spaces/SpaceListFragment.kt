@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.spaces
@@ -35,11 +26,11 @@ import im.vector.app.core.extensions.configureWith
 import im.vector.app.core.platform.StateView
 import im.vector.app.core.platform.VectorBaseFragment
 import im.vector.app.databinding.FragmentSpaceListBinding
-import im.vector.app.features.VectorFeatures
 import im.vector.app.features.home.HomeActivitySharedAction
 import im.vector.app.features.home.HomeSharedActionViewModel
 import im.vector.app.features.home.room.list.actions.RoomListSharedAction
 import im.vector.app.features.home.room.list.actions.RoomListSharedActionViewModel
+import im.vector.app.features.settings.VectorPreferences
 import org.matrix.android.sdk.api.session.room.model.RoomSummary
 import javax.inject.Inject
 
@@ -58,7 +49,7 @@ class SpaceListFragment :
 
     @Inject lateinit var spaceController: SpaceSummaryController
     @Inject lateinit var newSpaceController: NewSpaceSummaryController
-    @Inject lateinit var vectorFeatures: VectorFeatures
+    @Inject lateinit var vectorPreferences: VectorPreferences
 
     private lateinit var homeActivitySharedActionViewModel: HomeSharedActionViewModel
     private lateinit var roomListSharedActionViewModel: RoomListSharedActionViewModel
@@ -79,7 +70,7 @@ class SpaceListFragment :
     }
 
     private fun setupSpaceController() {
-        if (vectorFeatures.isNewAppLayoutEnabled()) {
+        if (vectorPreferences.isNewAppLayoutEnabled()) {
             newSpaceController.callback = this
             views.groupListView.configureWith(newSpaceController)
         } else {
@@ -169,15 +160,15 @@ class SpaceListFragment :
             else -> Unit
         }
 
-        if (vectorFeatures.isNewAppLayoutEnabled()) {
+        if (vectorPreferences.isNewAppLayoutEnabled()) {
             newSpaceController.update(state)
         } else {
             spaceController.update(state)
         }
     }
 
-    override fun onSpaceSelected(spaceSummary: RoomSummary?) {
-        viewModel.handle(SpaceListAction.SelectSpace(spaceSummary))
+    override fun onSpaceSelected(spaceSummary: RoomSummary?, isSubSpace: Boolean) {
+        viewModel.handle(SpaceListAction.SelectSpace(spaceSummary, isSubSpace = isSubSpace))
         roomListSharedActionViewModel.post(RoomListSharedAction.CloseBottomSheet)
     }
 

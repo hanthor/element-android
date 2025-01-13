@@ -50,7 +50,6 @@ import org.matrix.android.sdk.api.session.securestorage.SharedSecretStorageServi
 import org.matrix.android.sdk.api.session.signout.SignOutService
 import org.matrix.android.sdk.api.session.space.SpaceService
 import org.matrix.android.sdk.api.session.statistics.StatisticsListener
-import org.matrix.android.sdk.api.session.sync.FilterService
 import org.matrix.android.sdk.api.session.sync.SyncService
 import org.matrix.android.sdk.api.session.terms.TermsService
 import org.matrix.android.sdk.api.session.thirdparty.ThirdPartyService
@@ -162,11 +161,6 @@ interface Session {
      * Returns the SignOutService associated with the session.
      */
     fun signOutService(): SignOutService
-
-    /**
-     * Returns the FilterService associated with the session.
-     */
-    fun filterService(): FilterService
 
     /**
      * Returns the PushRuleService associated with the session.
@@ -301,6 +295,11 @@ interface Session {
      * So it is exposed to let the app be able to download image with Glide or any other libraries which accept an OkHttp client.
      */
     fun getOkHttpClient(): OkHttpClient
+
+    /**
+     * Same as [getOkHttpClient] but will add the access token to the request.
+     */
+    fun getAuthenticatedOkHttpClient(): OkHttpClient
 
     /**
      * A global session listener to get notified for some events.

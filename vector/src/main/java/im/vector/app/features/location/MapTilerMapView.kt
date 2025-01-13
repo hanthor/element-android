@@ -1,23 +1,15 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.location
 
 import android.content.Context
 import android.content.res.TypedArray
+import android.graphics.drawable.Drawable
 import android.util.AttributeSet
 import android.view.Gravity
 import android.widget.ImageView
@@ -36,7 +28,10 @@ import com.mapbox.mapboxsdk.plugins.annotation.SymbolOptions
 import com.mapbox.mapboxsdk.style.layers.Property
 import im.vector.app.R
 import im.vector.app.core.utils.DimensionConverter
+import im.vector.lib.strings.CommonStrings
 import timber.log.Timber
+
+private const val USER_PIN_ID = "user-pin-id"
 
 class MapTilerMapView @JvmOverloads constructor(
         context: Context,
@@ -64,7 +59,7 @@ class MapTilerMapView @JvmOverloads constructor(
     init {
         context.obtainStyledAttributes(
                 attrs,
-                R.styleable.MapTilerMapView,
+                im.vector.lib.ui.styles.R.styleable.MapTilerMapView,
                 0,
                 0
         ).use {
@@ -74,7 +69,7 @@ class MapTilerMapView @JvmOverloads constructor(
     }
 
     private fun setLocateButtonVisibility(typedArray: TypedArray) {
-        showLocationButton = typedArray.getBoolean(R.styleable.MapTilerMapView_showLocateButton, false)
+        showLocationButton = typedArray.getBoolean(im.vector.lib.ui.styles.R.styleable.MapTilerMapView_showLocateButton, false)
     }
 
     override fun onDestroy() {
@@ -101,9 +96,11 @@ class MapTilerMapView @JvmOverloads constructor(
 
     private fun initMapStyle(map: MapboxMap, url: String) {
         map.setStyle(url) { style ->
+            val symbolManager = SymbolManager(this, map, style)
+            symbolManager.iconAllowOverlap = true
             mapRefs = MapRefs(
                     map,
-                    SymbolManager(this, map, style),
+                    symbolManager,
                     style
             )
             pendingState?.let { render(it) }
@@ -121,11 +118,13 @@ class MapTilerMapView @JvmOverloads constructor(
     private fun createLocateButton(): ImageView =
             ImageView(context).apply {
                 setImageDrawable(ContextCompat.getDrawable(context, R.drawable.btn_locate))
-                contentDescription = context.getString(R.string.a11y_location_share_locate_button)
+                contentDescription = context.getString(CommonStrings.a11y_location_share_locate_button)
                 layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
                 updateLayoutParams<MarginLayoutParams> {
-                    val marginHorizontal = context.resources.getDimensionPixelOffset(R.dimen.location_sharing_locate_button_margin_horizontal)
-                    val marginVertical = context.resources.getDimensionPixelOffset(R.dimen.location_sharing_locate_button_margin_vertical)
+                    val marginHorizontal =
+                            context.resources.getDimensionPixelOffset(im.vector.lib.ui.styles.R.dimen.location_sharing_locate_button_margin_horizontal)
+                    val marginVertical =
+                            context.resources.getDimensionPixelOffset(im.vector.lib.ui.styles.R.dimen.location_sharing_locate_button_margin_vertical)
                     setMargins(marginHorizontal, marginVertical, marginHorizontal, marginVertical)
                 }
                 updateLayoutParams<LayoutParams> {
@@ -136,7 +135,7 @@ class MapTilerMapView @JvmOverloads constructor(
     private fun adjustCompassButton(map: MapboxMap) {
         locateButton.post {
             val marginTop = locateButton.height + locateButton.marginTop + locateButton.marginBottom
-            val marginRight = context.resources.getDimensionPixelOffset(R.dimen.location_sharing_compass_button_margin_horizontal)
+            val marginRight = context.resources.getDimensionPixelOffset(im.vector.lib.ui.styles.R.dimen.location_sharing_compass_button_margin_horizontal)
             map.uiSettings.setCompassMargins(0, marginTop, marginRight, 0)
         }
     }
@@ -166,29 +165,43 @@ class MapTilerMapView @JvmOverloads constructor(
         }
 
         val pinDrawable = state.pinDrawable ?: userLocationDrawable
-        pinDrawable?.let { drawable ->
-            if (!safeMapRefs.style.isFullyLoaded ||
-                    safeMapRefs.style.getImage(state.pinId) == null) {
-                safeMapRefs.style.addImage(state.pinId, drawable.toBitmap())
-            }
-        }
+        addImageToMapStyle(pinDrawable, state.pinId, safeMapRefs)
 
-        state.userLocationData?.let { locationData ->
+        safeMapRefs.symbolManager.deleteAll()
+        state.pinLocationData?.let { locationData ->
             if (!initZoomDone || !state.zoomOnlyOnce) {
                 zoomToLocation(locationData)
                 initZoomDone = true
             }
 
-            safeMapRefs.symbolManager.deleteAll()
             if (pinDrawable != null && state.showPin) {
-                safeMapRefs.symbolManager.create(
-                        SymbolOptions()
-                                .withLatLng(LatLng(locationData.latitude, locationData.longitude))
-                                .withIconImage(state.pinId)
-                                .withIconAnchor(Property.ICON_ANCHOR_BOTTOM)
-                )
+                createSymbol(locationData, state.pinId, safeMapRefs)
             }
         }
+
+        state.userLocationData?.let { locationData ->
+            addImageToMapStyle(userLocationDrawable, USER_PIN_ID, safeMapRefs)
+            if (userLocationDrawable != null) {
+                createSymbol(locationData, USER_PIN_ID, safeMapRefs)
+            }
+        }
+    }
+
+    private fun addImageToMapStyle(image: Drawable?, imageId: String, mapRefs: MapRefs) {
+        image?.let { drawable ->
+            if (!mapRefs.style.isFullyLoaded || mapRefs.style.getImage(imageId) == null) {
+                mapRefs.style.addImage(imageId, drawable.toBitmap())
+            }
+        }
+    }
+
+    private fun createSymbol(locationData: LocationData, imageId: String, mapRefs: MapRefs) {
+        mapRefs.symbolManager.create(
+                SymbolOptions()
+                        .withLatLng(LatLng(locationData.latitude, locationData.longitude))
+                        .withIconImage(imageId)
+                        .withIconAnchor(Property.ICON_ANCHOR_BOTTOM)
+        )
     }
 
     fun zoomToLocation(locationData: LocationData) {

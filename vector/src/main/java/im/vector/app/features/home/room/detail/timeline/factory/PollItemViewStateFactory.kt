@@ -1,27 +1,17 @@
 /*
- * Copyright (c) 2022 New Vector Ltd
+ * Copyright 2022-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.detail.timeline.factory
 
-import im.vector.app.R
 import im.vector.app.core.resources.StringProvider
-import im.vector.app.features.home.room.detail.timeline.item.MessageInformationData
-import im.vector.app.features.home.room.detail.timeline.item.PollOptionViewState
 import im.vector.app.features.home.room.detail.timeline.item.PollResponseData
-import im.vector.app.features.poll.PollViewState
+import im.vector.app.features.poll.PollItemViewState
+import im.vector.lib.strings.CommonPlurals
+import im.vector.lib.strings.CommonStrings
 import org.matrix.android.sdk.api.extensions.orFalse
 import org.matrix.android.sdk.api.session.room.model.message.MessagePollContent
 import org.matrix.android.sdk.api.session.room.model.message.PollCreationInfo
@@ -29,32 +19,30 @@ import javax.inject.Inject
 
 class PollItemViewStateFactory @Inject constructor(
         private val stringProvider: StringProvider,
+        private val pollOptionViewStateFactory: PollOptionViewStateFactory,
 ) {
 
     fun create(
             pollContent: MessagePollContent,
-            informationData: MessageInformationData,
-    ): PollViewState {
+            pollResponseData: PollResponseData?,
+            isSent: Boolean,
+    ): PollItemViewState {
         val pollCreationInfo = pollContent.getBestPollCreationInfo()
-
         val question = pollCreationInfo?.question?.getBestQuestion().orEmpty()
-
-        val pollResponseSummary = informationData.pollResponseAggregatedSummary
-        val winnerVoteCount = pollResponseSummary?.winnerVoteCount
-        val totalVotes = pollResponseSummary?.totalVotes ?: 0
+        val totalVotes = pollResponseData?.totalVotes ?: 0
 
         return when {
-            !informationData.sendState.isSent() -> {
+            !isSent -> {
                 createSendingPollViewState(question, pollCreationInfo)
             }
-            informationData.pollResponseAggregatedSummary?.isClosed.orFalse() -> {
-                createEndedPollViewState(question, pollCreationInfo, pollResponseSummary, totalVotes, winnerVoteCount)
+            pollResponseData?.isClosed.orFalse() -> {
+                createEndedPollViewState(question, pollCreationInfo, pollResponseData, totalVotes)
             }
             pollContent.getBestPollCreationInfo()?.isUndisclosed().orFalse() -> {
-                createUndisclosedPollViewState(question, pollCreationInfo, pollResponseSummary)
+                createUndisclosedPollViewState(question, pollCreationInfo, pollResponseData)
             }
-            informationData.pollResponseAggregatedSummary?.myVote?.isNotEmpty().orFalse() -> {
-                createVotedPollViewState(question, pollCreationInfo, pollResponseSummary, totalVotes)
+            pollResponseData?.myVote?.isNotEmpty().orFalse() -> {
+                createVotedPollViewState(question, pollCreationInfo, pollResponseData, totalVotes)
             }
             else -> {
                 createReadyPollViewState(question, pollCreationInfo, totalVotes)
@@ -62,104 +50,81 @@ class PollItemViewStateFactory @Inject constructor(
         }
     }
 
-    private fun createSendingPollViewState(question: String, pollCreationInfo: PollCreationInfo?): PollViewState {
-        return PollViewState(
+    private fun createSendingPollViewState(question: String, pollCreationInfo: PollCreationInfo?): PollItemViewState {
+        return PollItemViewState(
                 question = question,
-                votesStatus = stringProvider.getString(R.string.poll_no_votes_cast),
+                votesStatus = stringProvider.getString(CommonStrings.poll_no_votes_cast),
                 canVote = false,
-                optionViewStates = pollCreationInfo?.answers?.map { answer ->
-                    PollOptionViewState.PollSending(
-                            optionId = answer.id ?: "",
-                            optionAnswer = answer.getBestAnswer() ?: ""
-                    )
-                },
+                optionViewStates = pollOptionViewStateFactory.createPollSendingOptions(pollCreationInfo),
         )
     }
 
     private fun createEndedPollViewState(
             question: String,
             pollCreationInfo: PollCreationInfo?,
-            pollResponseSummary: PollResponseData?,
+            pollResponseData: PollResponseData?,
             totalVotes: Int,
-            winnerVoteCount: Int?,
-    ): PollViewState {
-        return PollViewState(
+    ): PollItemViewState {
+        val totalVotesText = if (pollResponseData?.hasEncryptedRelatedEvents.orFalse()) {
+            stringProvider.getString(CommonStrings.unable_to_decrypt_some_events_in_poll)
+        } else {
+            stringProvider.getQuantityString(CommonPlurals.poll_total_vote_count_after_ended, totalVotes, totalVotes)
+        }
+        return PollItemViewState(
                 question = question,
-                votesStatus = stringProvider.getQuantityString(R.plurals.poll_total_vote_count_after_ended, totalVotes, totalVotes),
+                votesStatus = totalVotesText,
                 canVote = false,
-                optionViewStates = pollCreationInfo?.answers?.map { answer ->
-                    val voteSummary = pollResponseSummary?.getVoteSummaryOfAnOption(answer.id ?: "")
-                    PollOptionViewState.PollEnded(
-                            optionId = answer.id ?: "",
-                            optionAnswer = answer.getBestAnswer() ?: "",
-                            voteCount = voteSummary?.total ?: 0,
-                            votePercentage = voteSummary?.percentage ?: 0.0,
-                            isWinner = winnerVoteCount != 0 && voteSummary?.total == winnerVoteCount
-                    )
-                },
+                optionViewStates = pollOptionViewStateFactory.createPollEndedOptions(pollCreationInfo, pollResponseData),
         )
     }
 
     private fun createUndisclosedPollViewState(
             question: String,
             pollCreationInfo: PollCreationInfo?,
-            pollResponseSummary: PollResponseData?
-    ): PollViewState {
-        return PollViewState(
+            pollResponseData: PollResponseData?
+    ): PollItemViewState {
+        return PollItemViewState(
                 question = question,
-                votesStatus = stringProvider.getString(R.string.poll_undisclosed_not_ended),
+                votesStatus = stringProvider.getString(CommonStrings.poll_undisclosed_not_ended),
                 canVote = true,
-                optionViewStates = pollCreationInfo?.answers?.map { answer ->
-                    val isMyVote = pollResponseSummary?.myVote == answer.id
-                    PollOptionViewState.PollUndisclosed(
-                            optionId = answer.id ?: "",
-                            optionAnswer = answer.getBestAnswer() ?: "",
-                            isSelected = isMyVote
-                    )
-                },
+                optionViewStates = pollOptionViewStateFactory.createPollUndisclosedOptions(pollCreationInfo, pollResponseData),
         )
     }
 
     private fun createVotedPollViewState(
             question: String,
             pollCreationInfo: PollCreationInfo?,
-            pollResponseSummary: PollResponseData?,
+            pollResponseData: PollResponseData?,
             totalVotes: Int
-    ): PollViewState {
-        return PollViewState(
-                question = question,
-                votesStatus = stringProvider.getQuantityString(R.plurals.poll_total_vote_count_before_ended_and_voted, totalVotes, totalVotes),
-                canVote = true,
-                optionViewStates = pollCreationInfo?.answers?.map { answer ->
-                    val isMyVote = pollResponseSummary?.myVote == answer.id
-                    val voteSummary = pollResponseSummary?.getVoteSummaryOfAnOption(answer.id ?: "")
-                    PollOptionViewState.PollVoted(
-                            optionId = answer.id ?: "",
-                            optionAnswer = answer.getBestAnswer() ?: "",
-                            voteCount = voteSummary?.total ?: 0,
-                            votePercentage = voteSummary?.percentage ?: 0.0,
-                            isSelected = isMyVote
-                    )
-                },
-        )
-    }
-
-    private fun createReadyPollViewState(question: String, pollCreationInfo: PollCreationInfo?, totalVotes: Int): PollViewState {
-        val totalVotesText = if (totalVotes == 0) {
-            stringProvider.getString(R.string.poll_no_votes_cast)
+    ): PollItemViewState {
+        val totalVotesText = if (pollResponseData?.hasEncryptedRelatedEvents.orFalse()) {
+            stringProvider.getString(CommonStrings.unable_to_decrypt_some_events_in_poll)
         } else {
-            stringProvider.getQuantityString(R.plurals.poll_total_vote_count_before_ended_and_not_voted, totalVotes, totalVotes)
+            stringProvider.getQuantityString(CommonPlurals.poll_total_vote_count_before_ended_and_voted, totalVotes, totalVotes)
         }
-        return PollViewState(
+        return PollItemViewState(
                 question = question,
                 votesStatus = totalVotesText,
                 canVote = true,
-                optionViewStates = pollCreationInfo?.answers?.map { answer ->
-                    PollOptionViewState.PollReady(
-                            optionId = answer.id ?: "",
-                            optionAnswer = answer.getBestAnswer() ?: ""
-                    )
-                },
+                optionViewStates = pollOptionViewStateFactory.createPollVotedOptions(pollCreationInfo, pollResponseData),
+        )
+    }
+
+    private fun createReadyPollViewState(
+            question: String,
+            pollCreationInfo: PollCreationInfo?,
+            totalVotes: Int
+    ): PollItemViewState {
+        val totalVotesText = if (totalVotes == 0) {
+            stringProvider.getString(CommonStrings.poll_no_votes_cast)
+        } else {
+            stringProvider.getQuantityString(CommonPlurals.poll_total_vote_count_before_ended_and_not_voted, totalVotes, totalVotes)
+        }
+        return PollItemViewState(
+                question = question,
+                votesStatus = totalVotesText,
+                canVote = true,
+                optionViewStates = pollOptionViewStateFactory.createPollReadyOptions(pollCreationInfo),
         )
     }
 }

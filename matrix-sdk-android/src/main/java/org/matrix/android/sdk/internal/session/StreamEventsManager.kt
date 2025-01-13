@@ -22,6 +22,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.matrix.android.sdk.api.extensions.tryOrNull
 import org.matrix.android.sdk.api.session.LiveEventListener
+import org.matrix.android.sdk.api.session.crypto.MXCryptoError
 import org.matrix.android.sdk.api.session.crypto.model.MXEventDecryptionResult
 import org.matrix.android.sdk.api.session.events.model.Event
 import timber.log.Timber
@@ -42,14 +43,12 @@ internal class StreamEventsManager @Inject constructor() {
         listeners.remove(listener)
     }
 
-    fun dispatchLiveEventReceived(event: Event, roomId: String, initialSync: Boolean) {
+    fun dispatchLiveEventReceived(event: Event, roomId: String) {
         Timber.v("## dispatchLiveEventReceived ${event.eventId}")
         coroutineScope.launch {
-            if (!initialSync) {
-                listeners.forEach {
-                    tryOrNull {
-                        it.onLiveEvent(roomId, event)
-                    }
+            listeners.forEach {
+                tryOrNull {
+                    it.onLiveEvent(roomId, event)
                 }
             }
         }
@@ -77,7 +76,7 @@ internal class StreamEventsManager @Inject constructor() {
         }
     }
 
-    fun dispatchLiveEventDecryptionFailed(event: Event, error: Throwable) {
+    fun dispatchLiveEventDecryptionFailed(event: Event, error: MXCryptoError) {
         Timber.v("## dispatchLiveEventDecryptionFailed ${event.eventId}")
         coroutineScope.launch {
             listeners.forEach {

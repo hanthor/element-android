@@ -1,18 +1,8 @@
 /*
- * Copyright 2020 New Vector Ltd
+ * Copyright 2020-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 package im.vector.app.features.roommemberprofile.devices
 
@@ -29,21 +19,22 @@ import im.vector.app.core.di.MavericksAssistedViewModelFactory
 import im.vector.app.core.di.SingletonEntryPoint
 import im.vector.app.core.di.hiltMavericksViewModelFactory
 import im.vector.app.core.platform.VectorViewModel
+import kotlinx.coroutines.launch
+import org.matrix.android.sdk.api.extensions.tryOrNull
 import org.matrix.android.sdk.api.session.Session
 import org.matrix.android.sdk.api.session.crypto.crosssigning.MXCrossSigningInfo
 import org.matrix.android.sdk.api.session.crypto.model.CryptoDeviceInfo
-import org.matrix.android.sdk.api.session.crypto.verification.VerificationMethod
-import org.matrix.android.sdk.api.session.getUser
+import org.matrix.android.sdk.api.session.getUserOrDefault
 import org.matrix.android.sdk.api.util.MatrixItem
 import org.matrix.android.sdk.api.util.toMatrixItem
 import org.matrix.android.sdk.flow.flow
 
 data class DeviceListViewState(
         val userId: String,
-        val allowDeviceAction: Boolean,
+        val myUserId: String,
         val userItem: MatrixItem? = null,
-        val isMine: Boolean = false,
         val memberCrossSigningKey: MXCrossSigningInfo? = null,
+        val myDeviceId: String = "",
         val cryptoDevices: Async<List<CryptoDeviceInfo>> = Loading(),
         val selectedDevice: CryptoDeviceInfo? = null
 ) : MavericksState
@@ -61,23 +52,20 @@ class DeviceListBottomSheetViewModel @AssistedInject constructor(
 
     companion object : MavericksViewModelFactory<DeviceListBottomSheetViewModel, DeviceListViewState> by hiltMavericksViewModelFactory() {
 
-        override fun initialState(viewModelContext: ViewModelContext): DeviceListViewState? {
+        override fun initialState(viewModelContext: ViewModelContext): DeviceListViewState {
             val args = viewModelContext.args<DeviceListBottomSheet.Args>()
             val userId = args.userId
             val session = EntryPoints.get(viewModelContext.app(), SingletonEntryPoint::class.java).activeSessionHolder().getActiveSession()
-            return session.getUser(userId)?.toMatrixItem()?.let {
-                DeviceListViewState(
-                        userId = userId,
-                        allowDeviceAction = args.allowDeviceAction,
-                        userItem = it,
-                        isMine = userId == session.myUserId
-                )
-            } ?: return super.initialState(viewModelContext)
+            return DeviceListViewState(
+                    userId = userId,
+                    myUserId = session.myUserId,
+                    userItem = session.getUserOrDefault(userId).toMatrixItem(),
+                    myDeviceId = session.sessionParams.deviceId,
+            )
         }
     }
 
     init {
-
         session.flow().liveUserCryptoDevices(initialState.userId)
                 .execute {
                     copy(cryptoDevices = it).also {
@@ -89,13 +77,22 @@ class DeviceListBottomSheetViewModel @AssistedInject constructor(
                 .execute {
                     copy(memberCrossSigningKey = it.invoke()?.getOrNull())
                 }
+
+        updateMatrixItem()
+    }
+
+    private fun updateMatrixItem() {
+        viewModelScope.launch {
+            tryOrNull { session.userService().resolveUser(initialState.userId) }
+                    ?.toMatrixItem()
+                    ?.let { setState { copy(userItem = it) } }
+        }
     }
 
     override fun handle(action: DeviceListAction) {
         when (action) {
             is DeviceListAction.SelectDevice -> selectDevice(action)
             is DeviceListAction.DeselectDevice -> deselectDevice()
-            is DeviceListAction.ManuallyVerify -> manuallyVerify(action)
         }
     }
 
@@ -112,7 +109,6 @@ class DeviceListBottomSheetViewModel @AssistedInject constructor(
     }
 
     private fun selectDevice(action: DeviceListAction.SelectDevice) {
-        if (!initialState.allowDeviceAction) return
         setState {
             copy(selectedDevice = action.device)
         }
@@ -121,13 +117,6 @@ class DeviceListBottomSheetViewModel @AssistedInject constructor(
     private fun deselectDevice() {
         setState {
             copy(selectedDevice = null)
-        }
-    }
-
-    private fun manuallyVerify(action: DeviceListAction.ManuallyVerify) {
-        if (!initialState.allowDeviceAction) return
-        session.cryptoService().verificationService().beginKeyVerification(VerificationMethod.SAS, initialState.userId, action.deviceId, null)?.let { txID ->
-            _viewEvents.post(DeviceListBottomSheetViewEvents.Verify(initialState.userId, txID))
         }
     }
 }

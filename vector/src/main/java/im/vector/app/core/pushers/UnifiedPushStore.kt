@@ -1,37 +1,30 @@
 /*
- * Copyright (c) 2022 New Vector Ltd
+ * Copyright 2022-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.core.pushers
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.core.content.edit
-import im.vector.app.core.di.DefaultSharedPreferences
+import im.vector.app.core.di.DefaultPreferences
 import javax.inject.Inject
 
 class UnifiedPushStore @Inject constructor(
-        context: Context,
+        val context: Context,
+        val fcmHelper: FcmHelper,
+        @DefaultPreferences
+        private val defaultPrefs: SharedPreferences,
 ) {
-    private val defaultPrefs = DefaultSharedPreferences.getInstance(context)
-
     /**
      * Retrieves the UnifiedPush Endpoint.
      *
      * @return the UnifiedPush Endpoint or null if not received
      */
-    fun getEndpointOrToken(): String? {
+    fun getEndpoint(): String? {
         return defaultPrefs.getString(PREFS_ENDPOINT_OR_TOKEN, null)
     }
 

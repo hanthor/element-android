@@ -1,23 +1,14 @@
 /*
- * Copyright (c) 2022 New Vector Ltd
+ * Copyright 2022-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.detail.timeline.style
 
 import android.content.res.Resources
-import im.vector.app.R
+import im.vector.app.core.extensions.getVectorLastMessageContent
 import im.vector.app.core.extensions.localDateTime
 import im.vector.app.core.resources.LocaleProvider
 import im.vector.app.core.resources.isRTL
@@ -29,7 +20,6 @@ import org.matrix.android.sdk.api.session.room.model.message.MessageContent
 import org.matrix.android.sdk.api.session.room.model.message.MessageType
 import org.matrix.android.sdk.api.session.room.model.message.MessageVerificationRequestContent
 import org.matrix.android.sdk.api.session.room.timeline.TimelineEvent
-import org.matrix.android.sdk.api.session.room.timeline.getLastMessageContent
 import org.matrix.android.sdk.api.session.room.timeline.isEdition
 import org.matrix.android.sdk.api.session.room.timeline.isRootThread
 import javax.inject.Inject
@@ -47,8 +37,11 @@ class TimelineMessageLayoutFactory @Inject constructor(
         private val EVENT_TYPES_WITH_BUBBLE_LAYOUT = setOf(
                 EventType.MESSAGE,
                 EventType.ENCRYPTED,
-                EventType.STICKER
-        ) + EventType.POLL_START + EventType.STATE_ROOM_BEACON_INFO
+                EventType.STICKER,
+        ) +
+                EventType.POLL_START.values +
+                EventType.POLL_END.values +
+                EventType.STATE_ROOM_BEACON_INFO.values
 
         // Can't be rendered in bubbles, so get back to default layout
         private val MSG_TYPES_WITHOUT_BUBBLE_LAYOUT = setOf(
@@ -76,7 +69,7 @@ class TimelineMessageLayoutFactory @Inject constructor(
     }
 
     private val cornerRadius: Float by lazy {
-        resources.getDimensionPixelSize(R.dimen.chat_bubble_corner_radius).toFloat()
+        resources.getDimensionPixelSize(im.vector.lib.ui.styles.R.dimen.chat_bubble_corner_radius).toFloat()
     }
 
     private val isRTL: Boolean by lazy {
@@ -126,7 +119,7 @@ class TimelineMessageLayoutFactory @Inject constructor(
                             isLastFromThisSender = isLastFromThisSender
                     )
 
-                    val messageContent = event.getLastMessageContent()
+                    val messageContent = event.getVectorLastMessageContent()
                     TimelineMessageLayout.Bubble(
                             showAvatar = showInformation && !isSentByMe,
                             showDisplayName = showInformation && !isSentByMe,
@@ -167,7 +160,7 @@ class TimelineMessageLayoutFactory @Inject constructor(
     private fun TimelineEvent.shouldBuildBubbleLayout(): Boolean {
         val type = root.getClearType()
         if (type in EVENT_TYPES_WITH_BUBBLE_LAYOUT) {
-            val messageContent = getLastMessageContent()
+            val messageContent = getVectorLastMessageContent()
             return messageContent?.msgType !in MSG_TYPES_WITHOUT_BUBBLE_LAYOUT
         }
         return false
@@ -212,7 +205,7 @@ class TimelineMessageLayoutFactory @Inject constructor(
             EventType.KEY_VERIFICATION_DONE,
             EventType.KEY_VERIFICATION_CANCEL -> true
             EventType.MESSAGE -> {
-                event.getLastMessageContent() is MessageVerificationRequestContent
+                event.getVectorLastMessageContent() is MessageVerificationRequestContent
             }
             else -> false
         }

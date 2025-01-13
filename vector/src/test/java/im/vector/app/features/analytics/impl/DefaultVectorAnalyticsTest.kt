@@ -1,28 +1,18 @@
 /*
- * Copyright (c) 2022 New Vector Ltd
+ * Copyright 2022-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.analytics.impl
 
-import com.posthog.android.Properties
-import im.vector.app.features.analytics.itf.VectorAnalyticsEvent
-import im.vector.app.features.analytics.itf.VectorAnalyticsScreen
+import im.vector.app.features.analytics.plan.SuperProperties
 import im.vector.app.test.fakes.FakeAnalyticsStore
 import im.vector.app.test.fakes.FakeLateInitUserPropertiesFactory
 import im.vector.app.test.fakes.FakePostHog
 import im.vector.app.test.fakes.FakePostHogFactory
+import im.vector.app.test.fakes.FakeSentryAnalytics
 import im.vector.app.test.fixtures.AnalyticsConfigFixture.anAnalyticsConfig
 import im.vector.app.test.fixtures.aUserProperties
 import im.vector.app.test.fixtures.aVectorAnalyticsEvent
@@ -45,13 +35,15 @@ class DefaultVectorAnalyticsTest {
     private val fakePostHog = FakePostHog()
     private val fakeAnalyticsStore = FakeAnalyticsStore()
     private val fakeLateInitUserPropertiesFactory = FakeLateInitUserPropertiesFactory()
+    private val fakeSentryAnalytics = FakeSentryAnalytics()
 
     private val defaultVectorAnalytics = DefaultVectorAnalytics(
             postHogFactory = FakePostHogFactory(fakePostHog.instance).instance,
+            sentryAnalytics = fakeSentryAnalytics.instance,
             analyticsStore = fakeAnalyticsStore.instance,
             globalScope = CoroutineScope(Dispatchers.Unconfined),
             analyticsConfig = anAnalyticsConfig(isEnabled = true),
-            lateInitUserPropertiesFactory = fakeLateInitUserPropertiesFactory.instance
+            lateInitUserPropertiesFactory = fakeLateInitUserPropertiesFactory.instance,
     )
 
     @Before
@@ -67,17 +59,27 @@ class DefaultVectorAnalyticsTest {
     }
 
     @Test
-    fun `when consenting to analytics then updates posthog opt out to false`() = runTest {
+    fun `when consenting to analytics then updates posthog opt out to false and initialize Sentry`() = runTest {
         fakeAnalyticsStore.givenUserContent(consent = true)
 
         fakePostHog.verifyOptOutStatus(optedOut = false)
+
+        fakeSentryAnalytics.verifySentryInit()
     }
 
     @Test
-    fun `when revoking consent to analytics then updates posthog opt out to true`() = runTest {
+    fun `when revoking consent to analytics then updates posthog opt out to true and closes Sentry`() = runTest {
+        // For opt-out to have effect on Posthog, it has to be used first, so it has to be opt-in first
+        fakeAnalyticsStore.givenUserContent(consent = true)
+        fakePostHog.verifyOptOutStatus(optedOut = false)
+        fakeSentryAnalytics.verifySentryInit()
+
+        // Then test opt-out
         fakeAnalyticsStore.givenUserContent(consent = false)
 
         fakePostHog.verifyOptOutStatus(optedOut = true)
+
+        fakeSentryAnalytics.verifySentryClose()
     }
 
     @Test
@@ -90,6 +92,7 @@ class DefaultVectorAnalyticsTest {
     @Test
     fun `given lateinit user properties when valid analytics id updates then identify with lateinit properties`() = runTest {
         fakeLateInitUserPropertiesFactory.givenCreatesProperties(A_LATE_INIT_USER_PROPERTIES)
+        fakeAnalyticsStore.givenUserContent(true)
 
         fakeAnalyticsStore.givenAnalyticsId(AN_ANALYTICS_ID)
 
@@ -97,12 +100,15 @@ class DefaultVectorAnalyticsTest {
     }
 
     @Test
-    fun `when signing out then resets posthog`() = runTest {
+    fun `when signing out then resets posthog and closes Sentry`() = runTest {
         fakeAnalyticsStore.allowSettingAnalyticsIdToCallBackingFlow()
+        fakeAnalyticsStore.givenUserContent(true)
 
         defaultVectorAnalytics.onSignOut()
 
         fakePostHog.verifyReset()
+
+        fakeSentryAnalytics.verifySentryClose()
     }
 
     @Test
@@ -111,7 +117,7 @@ class DefaultVectorAnalyticsTest {
 
         defaultVectorAnalytics.screen(A_SCREEN_EVENT)
 
-        fakePostHog.verifyScreenTracked(A_SCREEN_EVENT.getName(), A_SCREEN_EVENT.toPostHogProperties())
+        fakePostHog.verifyScreenTracked(A_SCREEN_EVENT.getName(), A_SCREEN_EVENT.getProperties())
     }
 
     @Test
@@ -129,7 +135,7 @@ class DefaultVectorAnalyticsTest {
 
         defaultVectorAnalytics.capture(AN_EVENT)
 
-        fakePostHog.verifyEventTracked(AN_EVENT.getName(), AN_EVENT.toPostHogProperties())
+        fakePostHog.verifyEventTracked(AN_EVENT.getName(), AN_EVENT.getProperties().clearNulls())
     }
 
     @Test
@@ -140,16 +146,146 @@ class DefaultVectorAnalyticsTest {
 
         fakePostHog.verifyNoEventTracking()
     }
-}
 
-private fun VectorAnalyticsScreen.toPostHogProperties(): Properties? {
-    return getProperties()?.let { properties ->
-        Properties().also { it.putAll(properties) }
+    @Test
+    fun `given user has consented, when tracking exception, then submits to sentry`() = runTest {
+        fakeAnalyticsStore.givenUserContent(consent = true)
+        val exception = Exception("test")
+
+        defaultVectorAnalytics.trackError(exception)
+
+        fakeSentryAnalytics.verifySentryTrackError(exception)
     }
-}
 
-private fun VectorAnalyticsEvent.toPostHogProperties(): Properties? {
-    return getProperties()?.let { properties ->
-        Properties().also { it.putAll(properties) }
+    @Test
+    fun `given user has not consented, when tracking exception, then does not track to sentry`() = runTest {
+        fakeAnalyticsStore.givenUserContent(consent = false)
+
+        defaultVectorAnalytics.trackError(Exception("test"))
+
+        fakeSentryAnalytics.verifyNoErrorTracking()
+    }
+
+    @Test
+    fun `Super properties should be added to all captured events`() = runTest {
+        fakeAnalyticsStore.givenUserContent(consent = true)
+
+        val updatedProperties = SuperProperties(
+                appPlatform = SuperProperties.AppPlatform.EA,
+                cryptoSDKVersion = "0.0",
+                cryptoSDK = SuperProperties.CryptoSDK.Rust
+        )
+
+        defaultVectorAnalytics.updateSuperProperties(updatedProperties)
+
+        val fakeEvent = aVectorAnalyticsEvent("THE_NAME", mutableMapOf("foo" to "bar"))
+        defaultVectorAnalytics.capture(fakeEvent)
+
+        fakePostHog.verifyEventTracked(
+                "THE_NAME",
+                fakeEvent.getProperties().clearNulls()?.toMutableMap()?.apply {
+                    updatedProperties.getProperties()?.let { putAll(it) }
+                }
+        )
+
+        // Check with a screen event
+        val fakeScreen = aVectorAnalyticsScreen("Screen", mutableMapOf("foo" to "bar"))
+        defaultVectorAnalytics.screen(fakeScreen)
+
+        fakePostHog.verifyScreenTracked(
+                "Screen",
+                fakeScreen.getProperties().clearNulls()?.toMutableMap()?.apply {
+                    updatedProperties.getProperties()?.let { putAll(it) }
+                }
+        )
+    }
+
+    @Test
+    fun `Super properties can be updated`() = runTest {
+        fakeAnalyticsStore.givenUserContent(consent = true)
+
+        val superProperties = SuperProperties(
+                appPlatform = SuperProperties.AppPlatform.EA,
+                cryptoSDKVersion = "0.0",
+                cryptoSDK = SuperProperties.CryptoSDK.Rust
+        )
+
+        defaultVectorAnalytics.updateSuperProperties(superProperties)
+
+        val fakeEvent = aVectorAnalyticsEvent("THE_NAME", mutableMapOf("foo" to "bar"))
+        defaultVectorAnalytics.capture(fakeEvent)
+
+        fakePostHog.verifyEventTracked(
+                "THE_NAME",
+                fakeEvent.getProperties().clearNulls()?.toMutableMap()?.apply {
+                    superProperties.getProperties()?.let { putAll(it) }
+                }
+        )
+
+        val superPropertiesUpdate = superProperties.copy(cryptoSDKVersion = "1.0")
+        defaultVectorAnalytics.updateSuperProperties(superPropertiesUpdate)
+
+        defaultVectorAnalytics.capture(fakeEvent)
+
+        fakePostHog.verifyEventTracked(
+                "THE_NAME",
+                fakeEvent.getProperties().clearNulls()?.toMutableMap()?.apply {
+                    superPropertiesUpdate.getProperties()?.let { putAll(it) }
+                }
+        )
+    }
+
+    @Test
+    fun `Super properties should not override event property`() = runTest {
+        fakeAnalyticsStore.givenUserContent(consent = true)
+
+        val superProperties = SuperProperties(
+                cryptoSDKVersion = "0.0",
+        )
+
+        defaultVectorAnalytics.updateSuperProperties(superProperties)
+
+        val fakeEvent = aVectorAnalyticsEvent("THE_NAME", mutableMapOf("cryptoSDKVersion" to "XXX"))
+        defaultVectorAnalytics.capture(fakeEvent)
+
+        fakePostHog.verifyEventTracked(
+                "THE_NAME",
+                mapOf(
+                        "cryptoSDKVersion" to "XXX"
+                )
+        )
+    }
+
+    @Test
+    fun `Super properties should be added to event with no properties`() = runTest {
+        fakeAnalyticsStore.givenUserContent(consent = true)
+
+        val superProperties = SuperProperties(
+                cryptoSDKVersion = "0.0",
+        )
+
+        defaultVectorAnalytics.updateSuperProperties(superProperties)
+
+        val fakeEvent = aVectorAnalyticsEvent("THE_NAME", null)
+        defaultVectorAnalytics.capture(fakeEvent)
+
+        fakePostHog.verifyEventTracked(
+                "THE_NAME",
+                mapOf(
+                        "cryptoSDKVersion" to "0.0"
+                )
+        )
+    }
+
+    private fun Map<String, Any?>?.clearNulls(): Map<String, Any>? {
+        if (this == null) return null
+
+        val nonNulls = HashMap<String, Any>()
+        this.forEach { (key, value) ->
+            if (value != null) {
+                nonNulls[key] = value
+            }
+        }
+        return nonNulls
     }
 }

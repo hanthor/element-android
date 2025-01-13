@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.settings.devices
@@ -26,17 +17,18 @@ import com.airbnb.mvrx.Uninitialized
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
-import im.vector.app.R
 import im.vector.app.core.di.MavericksAssistedViewModelFactory
 import im.vector.app.core.di.hiltMavericksViewModelFactory
 import im.vector.app.core.platform.VectorViewModel
 import im.vector.app.core.resources.StringProvider
 import im.vector.app.core.utils.PublishDataSource
-import im.vector.app.features.auth.ReAuthActivity
+import im.vector.app.features.auth.PendingAuthHandler
+import im.vector.app.features.crypto.verification.SupportedVerificationMethodsProvider
 import im.vector.app.features.login.ReAuthHelper
 import im.vector.app.features.settings.devices.v2.list.CheckIfSessionIsInactiveUseCase
+import im.vector.app.features.settings.devices.v2.verification.GetEncryptionTrustLevelForDeviceUseCase
 import im.vector.lib.core.utils.flow.throttleFirst
-import kotlinx.coroutines.Dispatchers
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
@@ -44,9 +36,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
-import org.matrix.android.sdk.api.Matrix
-import org.matrix.android.sdk.api.MatrixCallback
-import org.matrix.android.sdk.api.NoOpMatrixCallback
 import org.matrix.android.sdk.api.auth.UIABaseAuth
 import org.matrix.android.sdk.api.auth.UserInteractiveAuthInterceptor
 import org.matrix.android.sdk.api.auth.UserPasswordAuth
@@ -54,25 +43,21 @@ import org.matrix.android.sdk.api.auth.data.LoginFlowTypes
 import org.matrix.android.sdk.api.auth.registration.RegistrationFlowResponse
 import org.matrix.android.sdk.api.auth.registration.nextUncompletedStage
 import org.matrix.android.sdk.api.extensions.orFalse
+import org.matrix.android.sdk.api.extensions.tryOrNull
 import org.matrix.android.sdk.api.failure.Failure
 import org.matrix.android.sdk.api.session.Session
-import org.matrix.android.sdk.api.session.crypto.crosssigning.DeviceTrustLevel
 import org.matrix.android.sdk.api.session.crypto.model.CryptoDeviceInfo
 import org.matrix.android.sdk.api.session.crypto.model.DeviceInfo
 import org.matrix.android.sdk.api.session.crypto.model.RoomEncryptionTrustLevel
-import org.matrix.android.sdk.api.session.crypto.verification.VerificationMethod
+import org.matrix.android.sdk.api.session.crypto.verification.VerificationEvent
 import org.matrix.android.sdk.api.session.crypto.verification.VerificationService
 import org.matrix.android.sdk.api.session.crypto.verification.VerificationTransaction
-import org.matrix.android.sdk.api.session.crypto.verification.VerificationTxState
 import org.matrix.android.sdk.api.session.uia.DefaultBaseAuth
-import org.matrix.android.sdk.api.util.awaitCallback
-import org.matrix.android.sdk.api.util.fromBase64
 import org.matrix.android.sdk.flow.flow
 import timber.log.Timber
 import javax.net.ssl.HttpsURLConnection
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 data class DevicesViewState(
         val myDeviceId: String = "",
@@ -90,7 +75,7 @@ data class DevicesViewState(
 data class DeviceFullInfo(
         val deviceInfo: DeviceInfo,
         val cryptoDeviceInfo: CryptoDeviceInfo?,
-        val trustLevelForShield: RoomEncryptionTrustLevel,
+        val trustLevelForShield: RoomEncryptionTrustLevel?,
         val isInactive: Boolean,
 )
 
@@ -99,12 +84,12 @@ class DevicesViewModel @AssistedInject constructor(
         private val session: Session,
         private val reAuthHelper: ReAuthHelper,
         private val stringProvider: StringProvider,
-        private val matrix: Matrix,
+        private val pendingAuthHandler: PendingAuthHandler,
         private val checkIfSessionIsInactiveUseCase: CheckIfSessionIsInactiveUseCase,
+        getCurrentSessionCrossSigningInfoUseCase: GetCurrentSessionCrossSigningInfoUseCase,
+        private val getEncryptionTrustLevelForDeviceUseCase: GetEncryptionTrustLevelForDeviceUseCase,
+        private val supportedVerificationMethodsProvider: SupportedVerificationMethodsProvider,
 ) : VectorViewModel<DevicesViewState, DevicesAction, DevicesViewEvents>(initialState), VerificationService.Listener {
-
-    var uiaContinuation: Continuation<UIABaseAuth>? = null
-    var pendingAuth: UIABaseAuth? = null
 
     @AssistedFactory
     interface Factory : MavericksAssistedViewModelFactory<DevicesViewModel, DevicesViewState> {
@@ -116,15 +101,34 @@ class DevicesViewModel @AssistedInject constructor(
     private val refreshSource = PublishDataSource<Unit>()
 
     init {
-        val hasAccountCrossSigning = session.cryptoService().crossSigningService().isCrossSigningInitialized()
-        val accountCrossSigningIsTrusted = session.cryptoService().crossSigningService().isCrossSigningVerified()
+        initState()
+        viewModelScope.launch {
+            val currentSessionCrossSigningInfo = getCurrentSessionCrossSigningInfoUseCase.execute()
+            val hasAccountCrossSigning = currentSessionCrossSigningInfo.isCrossSigningInitialized
+            val accountCrossSigningIsTrusted = currentSessionCrossSigningInfo.isCrossSigningVerified
 
-        setState {
-            copy(
-                    hasAccountCrossSigning = hasAccountCrossSigning,
-                    accountCrossSigningIsTrusted = accountCrossSigningIsTrusted,
-                    myDeviceId = session.sessionParams.deviceId ?: ""
-            )
+            setState {
+                copy(
+                        hasAccountCrossSigning = hasAccountCrossSigning,
+                        accountCrossSigningIsTrusted = accountCrossSigningIsTrusted,
+                        myDeviceId = session.sessionParams.deviceId
+                )
+            }
+
+            session.cryptoService().verificationService().requestEventFlow()
+                    .onEach {
+                        when (it) {
+                            is VerificationEvent.RequestUpdated -> {
+                                if (it.request.isFinished) {
+                                    queryRefreshDevicesList()
+                                }
+                            }
+                            else -> {
+                                // nop
+                            }
+                        }
+                    }
+                    .launchIn(viewModelScope)
         }
 
         combine(
@@ -143,17 +147,13 @@ class DevicesViewModel @AssistedInject constructor(
                     .sortedByDescending { it.lastSeenTs }
                     .map { deviceInfo ->
                         val cryptoDeviceInfo = cryptoList.firstOrNull { it.deviceId == deviceInfo.deviceId }
-                        val trustLevelForShield = computeTrustLevelForShield(
-                                currentSessionCrossTrusted = accountCrossSigningIsTrusted,
-                                legacyMode = !hasAccountCrossSigning,
-                                deviceTrustLevel = cryptoDeviceInfo?.trustLevel,
-                                isCurrentDevice = deviceInfo.deviceId == session.sessionParams.deviceId
-                        )
-                        val isInactive = checkIfSessionIsInactiveUseCase.execute(deviceInfo.lastSeenTs ?: 0)
+                        val currentSessionCrossSigningInfo = getCurrentSessionCrossSigningInfoUseCase.execute()
+                        val trustLevelForShield = getEncryptionTrustLevelForDeviceUseCase.execute(currentSessionCrossSigningInfo, cryptoDeviceInfo)
+                        val isInactive = checkIfSessionIsInactiveUseCase.execute(deviceInfo.lastSeenTs)
                         DeviceFullInfo(deviceInfo, cryptoDeviceInfo, trustLevelForShield, isInactive)
                     }
         }
-                .distinctUntilChanged()
+//                .distinctUntilChanged()
                 .execute { async ->
                     copy(
                             devices = async
@@ -167,7 +167,7 @@ class DevicesViewModel @AssistedInject constructor(
                             accountCrossSigningIsTrusted = it.invoke()?.getOrNull()?.isTrusted() == true
                     )
                 }
-        session.cryptoService().verificationService().addListener(this)
+//        session.cryptoService().verificationService().addListener(this)
 
 //        session.flow().liveMyDeviceInfo()
 //                .execute {
@@ -182,7 +182,7 @@ class DevicesViewModel @AssistedInject constructor(
                 .sample(5_000)
                 .onEach {
                     // If we have a new crypto device change, we might want to trigger refresh of device info
-                    session.cryptoService().fetchDevicesList(NoOpMatrixCallback())
+                    tryOrNull { session.cryptoService().fetchDevicesList() }
                 }
                 .launchIn(viewModelScope)
 
@@ -195,21 +195,36 @@ class DevicesViewModel @AssistedInject constructor(
 
         refreshSource.stream().throttleFirst(4_000)
                 .onEach {
-                    session.cryptoService().fetchDevicesList(NoOpMatrixCallback())
-                    session.cryptoService().downloadKeys(listOf(session.myUserId), true, NoOpMatrixCallback())
+                    tryOrNull { session.cryptoService().fetchDevicesList() }
+                    session.cryptoService().downloadKeysIfNeeded(listOf(session.myUserId), true)
                 }
                 .launchIn(viewModelScope)
         // then force download
         queryRefreshDevicesList()
     }
 
+    private fun initState() {
+        viewModelScope.launch {
+            val hasAccountCrossSigning = session.cryptoService().crossSigningService().isCrossSigningInitialized()
+            val accountCrossSigningIsTrusted = session.cryptoService().crossSigningService().isCrossSigningVerified()
+            val myDeviceId = session.sessionParams.deviceId
+            setState {
+                copy(
+                        hasAccountCrossSigning = hasAccountCrossSigning,
+                        accountCrossSigningIsTrusted = accountCrossSigningIsTrusted,
+                        myDeviceId = myDeviceId
+                )
+            }
+        }
+    }
+
     override fun onCleared() {
-        session.cryptoService().verificationService().removeListener(this)
+        // session.cryptoService().verificationService().removeListener(this)
         super.onCleared()
     }
 
     override fun transactionUpdated(tx: VerificationTransaction) {
-        if (tx.state == VerificationTxState.Verified) {
+        if (tx.isSuccessful()) {
             queryRefreshDevicesList()
         }
     }
@@ -233,65 +248,31 @@ class DevicesViewModel @AssistedInject constructor(
             is DevicesAction.CompleteSecurity -> handleCompleteSecurity()
             is DevicesAction.MarkAsManuallyVerified -> handleVerifyManually(action)
             is DevicesAction.VerifyMyDeviceManually -> handleShowDeviceCryptoInfo(action)
-            is DevicesAction.SsoAuthDone -> {
-                // we should use token based auth
-                // _viewEvents.post(CrossSigningSettingsViewEvents.ShowModalWaitingView(null))
-                // will release the interactive auth interceptor
-                Timber.d("## UIA - FallBack success $pendingAuth , continuation: $uiaContinuation")
-                if (pendingAuth != null) {
-                    uiaContinuation?.resume(pendingAuth!!)
-                } else {
-                    uiaContinuation?.resumeWithException(IllegalArgumentException())
-                }
-                Unit
-            }
-            is DevicesAction.PasswordAuthDone -> {
-                val decryptedPass = matrix.secureStorageService()
-                        .loadSecureSecret<String>(action.password.fromBase64().inputStream(), ReAuthActivity.DEFAULT_RESULT_KEYSTORE_ALIAS)
-                uiaContinuation?.resume(
-                        UserPasswordAuth(
-                                session = pendingAuth?.session,
-                                password = decryptedPass,
-                                user = session.myUserId
-                        )
-                )
-                Unit
-            }
-            DevicesAction.ReAuthCancelled -> {
-                Timber.d("## UIA - Reauth cancelled")
-//                _viewEvents.post(DevicesViewEvents.Loading)
-                uiaContinuation?.resumeWithException(Exception())
-                uiaContinuation = null
-                pendingAuth = null
-            }
+            is DevicesAction.SsoAuthDone -> pendingAuthHandler.ssoAuthDone()
+            is DevicesAction.PasswordAuthDone -> pendingAuthHandler.passwordAuthDone(action.password)
+            DevicesAction.ReAuthCancelled -> pendingAuthHandler.reAuthCancelled()
             DevicesAction.ResetSecurity -> _viewEvents.post(DevicesViewEvents.PromptResetSecrets)
         }
     }
 
-    private fun computeTrustLevelForShield(
-            currentSessionCrossTrusted: Boolean,
-            legacyMode: Boolean,
-            deviceTrustLevel: DeviceTrustLevel?,
-            isCurrentDevice: Boolean,
-    ): RoomEncryptionTrustLevel {
-        return TrustUtils.shieldForTrust(
-                currentDevice = isCurrentDevice,
-                trustMSK = currentSessionCrossTrusted,
-                legacyMode = legacyMode,
-                deviceTrustLevel = deviceTrustLevel
-        )
-    }
-
     private fun handleInteractiveVerification(action: DevicesAction.VerifyMyDevice) {
-        val txID = session.cryptoService()
-                .verificationService()
-                .beginKeyVerification(VerificationMethod.SAS, session.myUserId, action.deviceId, null)
-        _viewEvents.post(
-                DevicesViewEvents.ShowVerifyDevice(
-                        session.myUserId,
-                        txID
-                )
-        )
+        viewModelScope.launch {
+            session.cryptoService()
+                    .verificationService()
+                    .requestDeviceVerification(
+                            supportedVerificationMethodsProvider.provide(),
+                            session.myUserId,
+                            action.deviceId
+                    ).transactionId
+                    .let {
+                        _viewEvents.post(
+                                DevicesViewEvents.ShowVerifyDevice(
+                                        session.myUserId,
+                                        it
+                                )
+                        )
+                    }
+        }
     }
 
     private fun handleShowDeviceCryptoInfo(action: DevicesAction.VerifyMyDeviceManually) = withState { state ->
@@ -306,17 +287,14 @@ class DevicesViewModel @AssistedInject constructor(
         viewModelScope.launch {
             if (state.hasAccountCrossSigning) {
                 try {
-                    awaitCallback<Unit> {
-                        session.cryptoService().crossSigningService().trustDevice(action.cryptoDeviceInfo.deviceId, it)
-                    }
+                    session.cryptoService().crossSigningService().trustDevice(action.cryptoDeviceInfo.deviceId)
                 } catch (failure: Throwable) {
                     Timber.e("Failed to manually cross sign device ${action.cryptoDeviceInfo.deviceId} : ${failure.localizedMessage}")
                     _viewEvents.post(DevicesViewEvents.Failure(failure))
                 }
             } else {
                 // legacy
-                session.cryptoService().setDeviceVerification(
-                        DeviceTrustLevel(crossSigningVerified = false, locallyVerified = true),
+                session.cryptoService().verificationService().markedLocallyAsManuallyVerified(
                         action.cryptoDeviceInfo.userId,
                         action.cryptoDeviceInfo.deviceId
                 )
@@ -336,27 +314,21 @@ class DevicesViewModel @AssistedInject constructor(
     }
 
     private fun handleRename(action: DevicesAction.Rename) {
-        session.cryptoService().setDeviceName(action.deviceId, action.newName, object : MatrixCallback<Unit> {
-            override fun onSuccess(data: Unit) {
+        viewModelScope.launch {
+            try {
+                session.cryptoService().setDeviceName(action.deviceId, action.newName)
                 setState {
-                    copy(
-                            request = Success(data)
-                    )
+                    copy(request = Success(Unit))
                 }
                 // force settings update
                 queryRefreshDevicesList()
-            }
-
-            override fun onFailure(failure: Throwable) {
+            } catch (failure: Throwable) {
                 setState {
-                    copy(
-                            request = Fail(failure)
-                    )
+                    copy(request = Fail(failure))
                 }
-
                 _viewEvents.post(DevicesViewEvents.Failure(failure))
             }
-        })
+        }
     }
 
     /**
@@ -365,50 +337,57 @@ class DevicesViewModel @AssistedInject constructor(
     private fun handleDelete(action: DevicesAction.Delete) {
         val deviceId = action.deviceId
 
+        val accountManagementUrl = session.homeServerCapabilitiesService().getHomeServerCapabilities().externalAccountManagementUrl
+        if (accountManagementUrl != null) {
+            // Open external browser to delete this session
+            _viewEvents.post(
+                    DevicesViewEvents.OpenBrowser(
+                            url = accountManagementUrl.removeSuffix("/") + "?action=session_end&device_id=$deviceId"
+                    )
+            )
+        } else {
+            doDelete(deviceId)
+        }
+    }
+
+    private fun doDelete(deviceId: String) {
         setState {
             copy(
                     request = Loading()
             )
         }
 
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             try {
-                awaitCallback<Unit> {
-                    session.cryptoService().deleteDevice(deviceId, object : UserInteractiveAuthInterceptor {
-                        override fun performStage(flowResponse: RegistrationFlowResponse, errCode: String?, promise: Continuation<UIABaseAuth>) {
-                            Timber.d("## UIA : deleteDevice UIA")
-                            if (flowResponse.nextUncompletedStage() == LoginFlowTypes.PASSWORD && reAuthHelper.data != null && errCode == null) {
-                                UserPasswordAuth(
-                                        session = null,
-                                        user = session.myUserId,
-                                        password = reAuthHelper.data
-                                ).let { promise.resume(it) }
-                            } else {
-                                Timber.d("## UIA : deleteDevice UIA > start reauth activity")
-                                _viewEvents.post(DevicesViewEvents.RequestReAuth(flowResponse, errCode))
-                                pendingAuth = DefaultBaseAuth(session = flowResponse.session)
-                                uiaContinuation = promise
-                            }
+                session.cryptoService().deleteDevice(deviceId, object : UserInteractiveAuthInterceptor {
+                    override fun performStage(flowResponse: RegistrationFlowResponse, errCode: String?, promise: Continuation<UIABaseAuth>) {
+                        Timber.d("## UIA : deleteDevice UIA")
+                        if (flowResponse.nextUncompletedStage() == LoginFlowTypes.PASSWORD && reAuthHelper.data != null && errCode == null) {
+                            UserPasswordAuth(
+                                    session = null,
+                                    user = session.myUserId,
+                                    password = reAuthHelper.data
+                            ).let { promise.resume(it) }
+                        } else {
+                            Timber.d("## UIA : deleteDevice UIA > start reauth activity")
+                            _viewEvents.post(DevicesViewEvents.RequestReAuth(flowResponse, errCode))
+                            pendingAuthHandler.pendingAuth = DefaultBaseAuth(session = flowResponse.session)
+                            pendingAuthHandler.uiaContinuation = promise
                         }
-                    }, it)
-                }
+                    }
+                })
                 setState {
-                    copy(
-                            request = Success(Unit)
-                    )
+                    copy(request = Success(Unit))
                 }
-                // force settings update
                 queryRefreshDevicesList()
             } catch (failure: Throwable) {
                 setState {
-                    copy(
-                            request = Fail(failure)
-                    )
+                    copy(request = Fail(failure))
                 }
                 if (failure is Failure.OtherServerError && failure.httpCode == HttpsURLConnection.HTTP_UNAUTHORIZED) {
-                    _viewEvents.post(DevicesViewEvents.Failure(Exception(stringProvider.getString(R.string.authentication_error))))
+                    _viewEvents.post(DevicesViewEvents.Failure(Exception(stringProvider.getString(CommonStrings.authentication_error))))
                 } else {
-                    _viewEvents.post(DevicesViewEvents.Failure(Exception(stringProvider.getString(R.string.matrix_error))))
+                    _viewEvents.post(DevicesViewEvents.Failure(Exception(stringProvider.getString(CommonStrings.matrix_error))))
                 }
                 // ...
                 Timber.e(failure, "failed to delete session")

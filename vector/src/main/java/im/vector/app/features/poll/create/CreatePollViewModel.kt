@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.poll.create
@@ -22,6 +13,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import im.vector.app.core.di.MavericksAssistedViewModelFactory
 import im.vector.app.core.di.hiltMavericksViewModelFactory
+import im.vector.app.core.extensions.getVectorLastMessageContent
 import im.vector.app.core.platform.VectorViewModel
 import im.vector.app.features.poll.PollMode
 import org.matrix.android.sdk.api.session.Session
@@ -29,7 +21,6 @@ import org.matrix.android.sdk.api.session.getRoom
 import org.matrix.android.sdk.api.session.room.getTimelineEvent
 import org.matrix.android.sdk.api.session.room.model.message.MessagePollContent
 import org.matrix.android.sdk.api.session.room.model.message.PollType
-import org.matrix.android.sdk.api.session.room.timeline.getLastMessageContent
 
 class CreatePollViewModel @AssistedInject constructor(
         @Assisted private val initialState: CreatePollViewState,
@@ -72,7 +63,7 @@ class CreatePollViewModel @AssistedInject constructor(
 
     private fun initializeEditedPoll(eventId: String) {
         val event = room.getTimelineEvent(eventId) ?: return
-        val content = event.getLastMessageContent() as? MessagePollContent ?: return
+        val content = event.getVectorLastMessageContent() as? MessagePollContent ?: return
 
         val pollCreationInfo = content.getBestPollCreationInfo()
         val pollType = pollCreationInfo?.kind ?: PollType.DISCLOSED_UNSTABLE

@@ -72,7 +72,7 @@ class FlowSession(private val session: Session) {
     }
 
     fun liveMyDevicesInfo(): Flow<List<DeviceInfo>> {
-        return session.cryptoService().getLiveMyDevicesInfo().asFlow()
+        return session.cryptoService().getMyDevicesInfoLive().asFlow()
                 .startWith(session.coroutineDispatchers.io) {
                     session.cryptoService().getMyDevicesInfo()
                 }
@@ -80,6 +80,9 @@ class FlowSession(private val session: Session) {
 
     fun liveSyncState(): Flow<SyncState> {
         return session.syncService().getSyncStateLive().asFlow()
+                .startWith(session.coroutineDispatchers.io) {
+                    session.syncService().getSyncState()
+                }
     }
 
     fun livePushers(): Flow<List<Pusher>> {

@@ -1,17 +1,8 @@
 /*
- * Copyright 2020 New Vector Ltd
+ * Copyright 2020-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.detail.search
@@ -25,6 +16,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import im.vector.app.core.extensions.addFragment
 import im.vector.app.core.platform.VectorBaseActivity
 import im.vector.app.databinding.ActivitySearchBinding
+import im.vector.lib.core.utils.compat.getParcelableCompat
 
 @AndroidEntryPoint
 class SearchActivity : VectorBaseActivity<ActivitySearchBinding>() {
@@ -46,7 +38,7 @@ class SearchActivity : VectorBaseActivity<ActivitySearchBinding>() {
 
     override fun initUiAndData() {
         if (isFirstCreation()) {
-            val fragmentArgs: SearchArgs = intent?.extras?.getParcelable(Mavericks.KEY_ARG) ?: return
+            val fragmentArgs: SearchArgs = intent?.extras?.getParcelableCompat(Mavericks.KEY_ARG) ?: return
             addFragment(views.searchFragmentContainer, SearchFragment::class.java, fragmentArgs, FRAGMENT_TAG)
         }
         views.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {

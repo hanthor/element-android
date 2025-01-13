@@ -1,21 +1,13 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.detail.timeline.item
 
+import android.annotation.SuppressLint
 import android.graphics.Typeface
 import android.view.View
 import android.widget.ImageView
@@ -63,18 +55,13 @@ abstract class AbsMessageItem<H : AbsMessageItem.Holder>(
         }
     }
 
-    private val _memberNameClickListener = object : ClickListener {
-        override fun invoke(p1: View) {
-            attributes.avatarCallback?.onMemberNameClicked(attributes.informationData)
-        }
-    }
-
     private val _threadClickListener = object : ClickListener {
         override fun invoke(p1: View) {
             attributes.threadCallback?.onThreadSummaryClicked(attributes.informationData.eventId, attributes.threadDetails?.isRootThread ?: false)
         }
     }
 
+    @SuppressLint("SetTextI18n")
     override fun bind(holder: H) {
         super.bind(holder)
         if (attributes.informationData.messageLayout.showAvatar) {
@@ -95,7 +82,7 @@ abstract class AbsMessageItem<H : AbsMessageItem.Holder>(
             holder.memberNameView.isVisible = true
             holder.memberNameView.text = attributes.informationData.memberName
             holder.memberNameView.setTextColor(attributes.getMemberNameColor())
-            holder.memberNameView.onClick(_memberNameClickListener)
+            holder.memberNameView.onClick(attributes.memberClickListener)
             holder.memberNameView.setOnLongClickListener(attributes.itemLongClickListener)
         } else {
             holder.memberNameView.setOnClickListener(null)
@@ -118,7 +105,7 @@ abstract class AbsMessageItem<H : AbsMessageItem.Holder>(
             holder.threadSummaryConstraintLayout.onClick(_threadClickListener)
             attributes.threadDetails?.let { threadDetails ->
                 holder.threadSummaryConstraintLayout.isVisible = threadDetails.isRootThread
-                holder.threadSummaryCounterTextView.text = threadDetails.numberOfThreads.toString()
+                holder.threadSummaryCounterTextView.text = "${threadDetails.numberOfThreads}"
                 holder.threadSummaryInfoTextView.text = attributes.threadSummaryFormatted ?: attributes.decryptionErrorMessage
 
                 val userId = threadDetails.threadSummarySenderInfo?.userId ?: return@let

@@ -17,7 +17,7 @@
 package org.matrix.android.sdk.internal.session.user
 
 import androidx.lifecycle.LiveData
-import androidx.lifecycle.Transformations
+import androidx.lifecycle.map
 import androidx.paging.DataSource
 import androidx.paging.LivePagedListBuilder
 import androidx.paging.PagedList
@@ -66,12 +66,14 @@ internal class UserDataSource @Inject constructor(
         }
     }
 
+    fun getUserOrDefault(userId: String): User = getUser(userId) ?: User(userId)
+
     fun getUserLive(userId: String): LiveData<Optional<User>> {
         val liveData = monarchy.findAllMappedWithChanges(
                 { UserEntity.where(it, userId) },
                 { it.asDomain() }
         )
-        return Transformations.map(liveData) { results ->
+        return liveData.map { results ->
             results.firstOrNull().toOptional()
         }
     }

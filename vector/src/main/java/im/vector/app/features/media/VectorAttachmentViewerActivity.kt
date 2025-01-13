@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2020 New Vector Ltd
+ * Copyright 2020-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 package im.vector.app.features.media
 
@@ -29,11 +20,12 @@ import androidx.core.transition.addListener
 import androidx.core.view.ViewCompat
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.transition.Transition
 import com.airbnb.mvrx.viewModel
 import dagger.hilt.android.AndroidEntryPoint
-import im.vector.app.R
 import im.vector.app.core.di.ActiveSessionHolder
 import im.vector.app.core.extensions.singletonEntryPoint
 import im.vector.app.core.intent.getMimeTypeFromUri
@@ -47,9 +39,10 @@ import im.vector.app.features.themes.ActivityOtherThemes
 import im.vector.app.features.themes.ThemeUtils
 import im.vector.lib.attachmentviewer.AttachmentCommands
 import im.vector.lib.attachmentviewer.AttachmentViewerActivity
+import im.vector.lib.core.utils.compat.getParcelableArrayListExtraCompat
+import im.vector.lib.core.utils.compat.getParcelableExtraCompat
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
@@ -67,14 +60,9 @@ class VectorAttachmentViewerActivity : AttachmentViewerActivity(), AttachmentInt
             val sharedTransitionName: String?
     ) : Parcelable
 
-    @Inject
-    lateinit var sessionHolder: ActiveSessionHolder
-
-    @Inject
-    lateinit var dataSourceFactory: AttachmentProviderFactory
-
-    @Inject
-    lateinit var imageContentRenderer: ImageContentRenderer
+    @Inject lateinit var activeSessionHolder: ActiveSessionHolder
+    @Inject lateinit var dataSourceFactory: AttachmentProviderFactory
+    @Inject lateinit var imageContentRenderer: ImageContentRenderer
 
     private val viewModel: VectorAttachmentViewerViewModel by viewModel()
     private val errorFormatter by lazy(LazyThreadSafetyMode.NONE) { singletonEntryPoint().errorFormatter() }
@@ -87,7 +75,7 @@ class VectorAttachmentViewerActivity : AttachmentViewerActivity(), AttachmentInt
                 viewModel.handle(it)
             }
         } else if (deniedPermanently) {
-            onPermissionDeniedDialog(R.string.denied_permission_generic)
+            onPermissionDeniedDialog(CommonStrings.denied_permission_generic)
         }
         viewModel.pendingAction = null
     }
@@ -105,7 +93,7 @@ class VectorAttachmentViewerActivity : AttachmentViewerActivity(), AttachmentInt
                 transitionImageContainer.isVisible = true
 
                 // Postpone transaction a bit until thumbnail is loaded
-                val mediaData: Parcelable? = intent.getParcelableExtra(EXTRA_IMAGE_DATA)
+                val mediaData: Parcelable? = intent.getParcelableExtraCompat(EXTRA_IMAGE_DATA)
                 if (mediaData is ImageContentRenderer.Data) {
                     // will be shown at end of transition
                     pager2.isInvisible = true
@@ -126,11 +114,11 @@ class VectorAttachmentViewerActivity : AttachmentViewerActivity(), AttachmentInt
             }
         }
 
-        val session = sessionHolder.getSafeActiveSession() ?: return Unit.also { finish() }
+        val session = activeSessionHolder.getSafeActiveSession() ?: return Unit.also { finish() }
 
         val room = args.roomId?.let { session.getRoom(it) }
 
-        val inMemoryData = intent.getParcelableArrayListExtra<AttachmentData>(EXTRA_IN_MEMORY_DATA)
+        val inMemoryData = intent.getParcelableArrayListExtraCompat<AttachmentData>(EXTRA_IN_MEMORY_DATA)
         val sourceProvider = if (inMemoryData != null) {
             initialIndex = inMemoryData.indexOfFirst { it.eventId == args.eventId }.coerceAtLeast(0)
             dataSourceFactory.createProvider(inMemoryData, room, lifecycleScope)
@@ -150,8 +138,8 @@ class VectorAttachmentViewerActivity : AttachmentViewerActivity(), AttachmentInt
             }
         }
 
-        window.statusBarColor = ContextCompat.getColor(this, R.color.black_alpha)
-        window.navigationBarColor = ContextCompat.getColor(this, R.color.black_alpha)
+        window.statusBarColor = ContextCompat.getColor(this, im.vector.lib.ui.styles.R.color.black_alpha)
+        window.navigationBarColor = ContextCompat.getColor(this, im.vector.lib.ui.styles.R.color.black_alpha)
 
         observeViewEvents()
     }
@@ -166,6 +154,7 @@ class VectorAttachmentViewerActivity : AttachmentViewerActivity(), AttachmentInt
         Timber.i("onPause Activity ${javaClass.simpleName}")
     }
 
+    @Suppress("OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
         if (currentPosition == initialIndex) {
             // show back the transition view
@@ -173,6 +162,7 @@ class VectorAttachmentViewerActivity : AttachmentViewerActivity(), AttachmentInt
             transitionImageContainer.isVisible = true
         }
         isAnimatingOut = true
+        @Suppress("DEPRECATION")
         super.onBackPressed()
     }
 
@@ -227,7 +217,7 @@ class VectorAttachmentViewerActivity : AttachmentViewerActivity(), AttachmentInt
         return false
     }
 
-    private fun args() = intent.getParcelableExtra<Args>(EXTRA_ARGS)
+    private fun args() = intent.getParcelableExtraCompat<Args>(EXTRA_ARGS)
 
     private fun scheduleStartPostponedTransition(sharedElement: View) {
         sharedElement.viewTreeObserver.addOnPreDrawListener(
@@ -241,10 +231,15 @@ class VectorAttachmentViewerActivity : AttachmentViewerActivity(), AttachmentInt
     }
 
     private fun observeViewEvents() {
-        viewModel.viewEvents
-                .stream()
-                .onEach(::handleViewEvents)
-                .launchIn(lifecycleScope)
+        val tag = this::class.simpleName.toString()
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                viewModel
+                        .viewEvents
+                        .stream(tag)
+                        .collect(::handleViewEvents)
+            }
+        }
     }
 
     private fun handleViewEvents(event: VectorAttachmentViewerViewEvents) {

@@ -1,27 +1,17 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.roomprofile
 
+import androidx.lifecycle.asFlow
 import com.airbnb.mvrx.MavericksViewModelFactory
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
-import im.vector.app.R
 import im.vector.app.core.di.MavericksAssistedViewModelFactory
 import im.vector.app.core.di.hiltMavericksViewModelFactory
 import im.vector.app.core.platform.VectorViewModel
@@ -31,8 +21,13 @@ import im.vector.app.features.analytics.plan.Interaction
 import im.vector.app.features.home.ShortcutCreator
 import im.vector.app.features.powerlevel.PowerLevelsFlowFactory
 import im.vector.app.features.session.coroutineScope
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import org.matrix.android.sdk.api.query.QueryStringValue
@@ -76,6 +71,45 @@ class RoomProfileViewModel @AssistedInject constructor(
         observeBannedRoomMembers(flowRoom)
         observePermissions()
         observePowerLevels()
+        observeCryptoSettings(flowRoom)
+    }
+
+    private fun observeCryptoSettings(flowRoom: FlowRoom) {
+        val perRoomBlockStatus = session.cryptoService().getLiveBlockUnverifiedDevices(initialState.roomId)
+                .asFlow()
+
+        perRoomBlockStatus
+                .execute {
+                    copy(encryptToVerifiedDeviceOnly = it)
+                }
+
+        val globalBlockStatus = session.cryptoService().getLiveGlobalCryptoConfig()
+                .asFlow()
+
+        globalBlockStatus
+                .execute {
+                    copy(globalCryptoConfig = it)
+                }
+
+        perRoomBlockStatus.combine(globalBlockStatus) { perRoom, global ->
+            perRoom || global.globalBlockUnverifiedDevices
+        }.flatMapLatest {
+            if (it) {
+                flowRoom.liveRoomMembers(roomMemberQueryParams { memberships = Membership.activeMemberships() })
+                        .map { it.map { it.userId } }
+                        .flatMapLatest {
+                            session.cryptoService().getLiveCryptoDeviceInfo(it).asFlow()
+                        }
+            } else {
+                flowOf(emptyList())
+            }
+        }.map {
+            it.isNotEmpty()
+        }.execute {
+            copy(
+                    unverifiedDevicesInTheRoom = it
+            )
+        }
     }
 
     private fun observePowerLevels() {
@@ -141,6 +175,7 @@ class RoomProfileViewModel @AssistedInject constructor(
             is RoomProfileAction.ShareRoomProfile -> handleShareRoomProfile()
             RoomProfileAction.CreateShortcut -> handleCreateShortcut()
             RoomProfileAction.RestoreEncryptionState -> restoreEncryptionState()
+            is RoomProfileAction.SetEncryptToVerifiedDeviceOnly -> setEncryptToVerifiedDeviceOnly(action.enabled)
         }
     }
 
@@ -187,7 +222,7 @@ class RoomProfileViewModel @AssistedInject constructor(
     }
 
     private fun handleLeaveRoom() {
-        _viewEvents.post(RoomProfileViewEvents.Loading(stringProvider.getString(R.string.room_profile_leaving_room)))
+        _viewEvents.post(RoomProfileViewEvents.Loading(stringProvider.getString(CommonStrings.room_profile_leaving_room)))
         viewModelScope.launch {
             try {
                 session.roomService().leaveRoom(room.roomId)
@@ -210,6 +245,12 @@ class RoomProfileViewModel @AssistedInject constructor(
                 ?.let { permalink ->
                     _viewEvents.post(RoomProfileViewEvents.ShareRoomProfile(permalink))
                 }
+    }
+
+    private fun setEncryptToVerifiedDeviceOnly(enabled: Boolean) {
+        session.coroutineScope.launch {
+            session.cryptoService().setRoomBlockUnverifiedDevices(room.roomId, enabled)
+        }
     }
 
     private fun restoreEncryptionState() {

@@ -1,21 +1,13 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.core.utils
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.DownloadManager
 import android.content.ActivityNotFoundException
@@ -40,8 +32,10 @@ import androidx.core.app.ShareCompat
 import androidx.core.content.FileProvider
 import androidx.core.content.getSystemService
 import im.vector.app.R
+import im.vector.app.core.resources.BuildMeta
 import im.vector.app.features.notifications.NotificationUtils
 import im.vector.app.features.themes.ThemeUtils
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okio.buffer
@@ -118,7 +112,7 @@ fun openUrlInChromeCustomTab(
                 .build()
                 .launchUrl(context, Uri.parse(url))
     } catch (activityNotFoundException: ActivityNotFoundException) {
-        context.toast(R.string.error_no_external_application_found)
+        context.toast(CommonStrings.error_no_external_application_found)
     }
 }
 
@@ -144,7 +138,7 @@ fun openFileSelection(
             activity.startActivityForResult(fileIntent, requestCode)
         }
     } catch (activityNotFoundException: ActivityNotFoundException) {
-        activity.toast(R.string.error_no_external_application_found)
+        activity.toast(CommonStrings.error_no_external_application_found)
     }
 }
 
@@ -222,7 +216,7 @@ fun shareMedia(context: Context, file: File, mediaMimeType: String?) {
     val chooserIntent = ShareCompat.IntentBuilder(context)
             .setType(mediaMimeType)
             .setStream(mediaUri)
-            .setChooserTitle(R.string.action_share)
+            .setChooserTitle(CommonStrings.action_share)
             .createChooserIntent()
 
     context.safeStartActivity(chooserIntent)
@@ -232,7 +226,7 @@ fun shareText(context: Context, text: String) {
     val chooserIntent = ShareCompat.IntentBuilder(context)
             .setType("text/plain")
             .setText(text)
-            .setChooserTitle(R.string.action_share)
+            .setChooserTitle(CommonStrings.action_share)
             .createChooserIntent()
 
     context.safeStartActivity(chooserIntent)
@@ -242,7 +236,7 @@ fun Context.safeStartActivity(intent: Intent) {
     try {
         startActivity(intent)
     } catch (activityNotFoundException: ActivityNotFoundException) {
-        toast(R.string.error_no_external_application_found)
+        toast(CommonStrings.error_no_external_application_found)
     }
 }
 
@@ -256,6 +250,7 @@ private fun appendTimeToFilename(name: String): String {
     return """${filename}_$dateExtension.$fileExtension"""
 }
 
+@SuppressLint("Recycle")
 suspend fun saveMedia(
         context: Context,
         file: File,
@@ -284,8 +279,8 @@ suspend fun saveMedia(
 
             val uri = context.contentResolver.insert(externalContentUri, values)
             if (uri == null) {
-                Toast.makeText(context, R.string.error_saving_media_file, Toast.LENGTH_LONG).show()
-                throw IllegalStateException(context.getString(R.string.error_saving_media_file))
+                Toast.makeText(context, CommonStrings.error_saving_media_file, Toast.LENGTH_LONG).show()
+                throw IllegalStateException(context.getString(CommonStrings.error_saving_media_file))
             } else {
                 val source = file.inputStream().source().buffer()
                 context.contentResolver.openOutputStream(uri)?.sink()?.buffer()?.let { sink ->
@@ -309,7 +304,6 @@ suspend fun saveMedia(
     }
 }
 
-@Suppress("DEPRECATION")
 private fun saveMediaLegacy(
         context: Context,
         mediaMimeType: String?,
@@ -319,8 +313,8 @@ private fun saveMediaLegacy(
 ) {
     val state = Environment.getExternalStorageState()
     if (Environment.MEDIA_MOUNTED != state) {
-        context.toast(context.getString(R.string.error_saving_media_file))
-        throw IllegalStateException(context.getString(R.string.error_saving_media_file))
+        context.toast(context.getString(CommonStrings.error_saving_media_file))
+        throw IllegalStateException(context.getString(CommonStrings.error_saving_media_file))
     }
 
     val dest = when {
@@ -340,6 +334,7 @@ private fun saveMediaLegacy(
         val savedFile = saveFileIntoLegacy(file, downloadDir, outputFilename, currentTimeMillis)
         if (savedFile != null) {
             val downloadManager = context.getSystemService<DownloadManager>()
+            @Suppress("DEPRECATION")
             downloadManager?.addCompletedDownload(
                     savedFile.name,
                     title,
@@ -352,7 +347,7 @@ private fun saveMediaLegacy(
             addToGallery(savedFile, mediaMimeType, context)
         }
     } catch (error: Throwable) {
-        context.toast(context.getString(R.string.error_saving_media_file))
+        context.toast(context.getString(CommonStrings.error_saving_media_file))
         throw error
     }
 }
@@ -373,13 +368,21 @@ private fun addToGallery(savedFile: File, mediaMimeType: String?, context: Conte
 }
 
 /**
- * Open the play store to the provided application Id, default to this app.
+ * Open the play store or the F-Droid to the provided application Id, default to this app.
  */
-fun openPlayStore(activity: Activity, appId: String) {
+fun openApplicationStore(
+        activity: Activity,
+        buildMeta: BuildMeta,
+        appId: String = buildMeta.applicationId,
+) {
     try {
         activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$appId")))
     } catch (activityNotFoundException: ActivityNotFoundException) {
-        activity.safeStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$appId")))
+        if (buildMeta.flavorDescription == "FDroid") {
+            activity.safeStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://f-droid.org/packages/$appId")))
+        } else {
+            activity.safeStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$appId")))
+        }
     }
 }
 
@@ -410,7 +413,7 @@ fun selectTxtFileToWrite(
     try {
         activityResultLauncher.launch(chooserIntent)
     } catch (activityNotFoundException: ActivityNotFoundException) {
-        activity.toast(R.string.error_no_external_application_found)
+        activity.toast(CommonStrings.error_no_external_application_found)
     }
 }
 
@@ -430,7 +433,6 @@ fun selectTxtFileToWrite(
  * @param currentTimeMillis the current time in milliseconds
  * @return               the created file
  */
-@Suppress("DEPRECATION")
 fun saveFileIntoLegacy(sourceFile: File, dstDirPath: File, outputFilename: String?, currentTimeMillis: Long): File? {
     // defines another name for the external media
     var dstFileName: String

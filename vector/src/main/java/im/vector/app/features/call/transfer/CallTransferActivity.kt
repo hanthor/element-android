@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2020 New Vector Ltd
+ * Copyright 2020-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.call.transfer
@@ -24,12 +15,11 @@ import com.airbnb.mvrx.Mavericks
 import com.airbnb.mvrx.viewModel
 import com.google.android.material.tabs.TabLayoutMediator
 import dagger.hilt.android.AndroidEntryPoint
-import im.vector.app.R
-import im.vector.app.core.error.ErrorFormatter
 import im.vector.app.core.platform.VectorBaseActivity
 import im.vector.app.databinding.ActivityCallTransferBinding
+import im.vector.lib.core.utils.compat.getParcelableCompat
+import im.vector.lib.strings.CommonStrings
 import kotlinx.parcelize.Parcelize
-import javax.inject.Inject
 
 @Parcelize
 data class CallTransferArgs(val callId: String) : Parcelable
@@ -38,8 +28,6 @@ private const val USER_LIST_FRAGMENT_TAG = "USER_LIST_FRAGMENT_TAG"
 
 @AndroidEntryPoint
 class CallTransferActivity : VectorBaseActivity<ActivityCallTransferBinding>() {
-
-    @Inject lateinit var errorFormatter: ErrorFormatter
 
     private lateinit var sectionsPagerAdapter: CallTransferPagerAdapter
 
@@ -59,13 +47,13 @@ class CallTransferActivity : VectorBaseActivity<ActivityCallTransferBinding>() {
             }
         }
 
-        sectionsPagerAdapter = CallTransferPagerAdapter(this)
+        sectionsPagerAdapter = CallTransferPagerAdapter(this, vectorLocale)
         views.callTransferViewPager.adapter = sectionsPagerAdapter
 
         TabLayoutMediator(views.callTransferTabLayout, views.callTransferViewPager) { tab, position ->
             when (position) {
-                CallTransferPagerAdapter.USER_LIST_INDEX -> tab.text = getString(R.string.call_transfer_users_tab_title)
-                CallTransferPagerAdapter.DIAL_PAD_INDEX -> tab.text = getString(R.string.call_dial_pad_title)
+                CallTransferPagerAdapter.USER_LIST_INDEX -> tab.text = getString(CommonStrings.call_transfer_users_tab_title)
+                CallTransferPagerAdapter.DIAL_PAD_INDEX -> tab.text = getString(CommonStrings.call_dial_pad_title)
             }
         }.attach()
         setupToolbar(views.callTransferToolbar)
@@ -112,7 +100,7 @@ class CallTransferActivity : VectorBaseActivity<ActivityCallTransferBinding>() {
         }
 
         fun getCallTransferResult(intent: Intent?): CallTransferResult? {
-            return intent?.extras?.getParcelable(EXTRA_TRANSFER_RESULT)
+            return intent?.extras?.getParcelableCompat(EXTRA_TRANSFER_RESULT)
         }
     }
 }

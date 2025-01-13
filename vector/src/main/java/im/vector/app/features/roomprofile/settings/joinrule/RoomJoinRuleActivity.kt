@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.roomprofile.settings.joinrule
@@ -29,7 +20,6 @@ import com.airbnb.mvrx.viewModel
 import com.airbnb.mvrx.withState
 import dagger.hilt.android.AndroidEntryPoint
 import im.vector.app.R
-import im.vector.app.core.error.ErrorFormatter
 import im.vector.app.core.extensions.addFragment
 import im.vector.app.core.extensions.commitTransaction
 import im.vector.app.core.extensions.toMvRxBundle
@@ -43,7 +33,7 @@ import im.vector.app.features.roomprofile.settings.joinrule.advanced.RoomJoinRul
 import im.vector.app.features.roomprofile.settings.joinrule.advanced.RoomJoinRuleChooseRestrictedFragment
 import im.vector.app.features.roomprofile.settings.joinrule.advanced.RoomJoinRuleChooseRestrictedState
 import im.vector.app.features.roomprofile.settings.joinrule.advanced.RoomJoinRuleChooseRestrictedViewModel
-import javax.inject.Inject
+import im.vector.lib.core.utils.compat.getParcelableCompat
 
 @AndroidEntryPoint
 class RoomJoinRuleActivity : VectorBaseActivity<ActivitySimpleBinding>() {
@@ -52,13 +42,10 @@ class RoomJoinRuleActivity : VectorBaseActivity<ActivitySimpleBinding>() {
 
     private lateinit var roomProfileArgs: RoomProfileArgs
 
-    @Inject
-    lateinit var errorFormatter: ErrorFormatter
-
     val viewModel: RoomJoinRuleChooseRestrictedViewModel by viewModel()
 
     override fun initUiAndData() {
-        roomProfileArgs = intent?.extras?.getParcelable(Mavericks.KEY_ARG) ?: return
+        roomProfileArgs = intent?.extras?.getParcelableCompat(Mavericks.KEY_ARG) ?: return
         if (isFirstCreation()) {
             addFragment(
                     views.simpleFragmentContainer,

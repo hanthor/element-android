@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2022 New Vector Ltd
+ * Copyright 2022-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.home.room.list.home.layout
@@ -25,6 +16,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import im.vector.app.R
 import im.vector.app.core.platform.VectorBaseBottomSheetDialogFragment
 import im.vector.app.databinding.BottomSheetHomeLayoutSettingsBinding
+import im.vector.app.features.analytics.plan.Interaction
 import im.vector.app.features.home.room.list.home.HomeLayoutPreferencesStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -54,9 +46,11 @@ class HomeLayoutSettingBottomDialogFragment : VectorBaseBottomSheetDialogFragmen
         }
 
         views.homeLayoutSettingsRecents.setOnCheckedChangeListener { _, isChecked ->
+            trackRecentsStateEvent(isChecked)
             setRecentsEnabled(isChecked)
         }
         views.homeLayoutSettingsFilters.setOnCheckedChangeListener { _, isChecked ->
+            trackFiltersStateEvent(isChecked)
             setFiltersEnabled(isChecked)
         }
         views.homeLayoutSettingsSortGroup.setOnCheckedChangeListener { _, checkedId ->
@@ -64,8 +58,38 @@ class HomeLayoutSettingBottomDialogFragment : VectorBaseBottomSheetDialogFragmen
         }
     }
 
+    private fun trackRecentsStateEvent(areEnabled: Boolean) {
+        val interactionName = if (areEnabled) {
+            Interaction.Name.MobileAllChatsRecentsEnabled
+        } else {
+            Interaction.Name.MobileAllChatsRecentsDisabled
+        }
+        analyticsTracker.capture(
+                Interaction(
+                        index = null,
+                        interactionType = null,
+                        name = interactionName
+                )
+        )
+    }
+
     private fun setRecentsEnabled(isEnabled: Boolean) = lifecycleScope.launch {
         preferencesStore.setRecentsEnabled(isEnabled)
+    }
+
+    private fun trackFiltersStateEvent(areEnabled: Boolean) {
+        val interactionName = if (areEnabled) {
+            Interaction.Name.MobileAllChatsFiltersEnabled
+        } else {
+            Interaction.Name.MobileAllChatsFiltersDisabled
+        }
+        analyticsTracker.capture(
+                Interaction(
+                        index = null,
+                        interactionType = null,
+                        name = interactionName
+                )
+        )
     }
 
     private fun setFiltersEnabled(isEnabled: Boolean) = lifecycleScope.launch {

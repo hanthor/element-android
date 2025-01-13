@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.core.di
@@ -22,6 +13,7 @@ import dagger.hilt.InstallIn
 import dagger.multibindings.IntoMap
 import im.vector.app.features.analytics.accountdata.AnalyticsAccountDataViewModel
 import im.vector.app.features.analytics.ui.consent.AnalyticsConsentViewModel
+import im.vector.app.features.attachments.AttachmentTypeSelectorViewModel
 import im.vector.app.features.auth.ReAuthViewModel
 import im.vector.app.features.call.VectorCallViewModel
 import im.vector.app.features.call.conference.JitsiCallViewModel
@@ -31,20 +23,21 @@ import im.vector.app.features.createdirect.CreateDirectRoomViewModel
 import im.vector.app.features.crypto.keysbackup.settings.KeysBackupSettingsViewModel
 import im.vector.app.features.crypto.quads.SharedSecureStorageViewModel
 import im.vector.app.features.crypto.recover.BootstrapSharedViewModel
-import im.vector.app.features.crypto.verification.VerificationBottomSheetViewModel
-import im.vector.app.features.crypto.verification.choose.VerificationChooseMethodViewModel
-import im.vector.app.features.crypto.verification.emoji.VerificationEmojiCodeViewModel
+import im.vector.app.features.crypto.verification.self.SelfVerificationViewModel
+import im.vector.app.features.crypto.verification.user.UserVerificationViewModel
 import im.vector.app.features.devtools.RoomDevToolViewModel
 import im.vector.app.features.discovery.DiscoverySettingsViewModel
 import im.vector.app.features.discovery.change.SetIdentityServerViewModel
 import im.vector.app.features.home.HomeActivityViewModel
 import im.vector.app.features.home.HomeDetailViewModel
+import im.vector.app.features.home.NewHomeDetailViewModel
 import im.vector.app.features.home.UnknownDeviceDetectorSharedViewModel
 import im.vector.app.features.home.UnreadMessagesSharedViewModel
 import im.vector.app.features.home.UserColorAccountDataViewModel
 import im.vector.app.features.home.room.breadcrumbs.BreadcrumbsViewModel
 import im.vector.app.features.home.room.detail.TimelineViewModel
 import im.vector.app.features.home.room.detail.composer.MessageComposerViewModel
+import im.vector.app.features.home.room.detail.composer.link.SetLinkViewModel
 import im.vector.app.features.home.room.detail.search.SearchViewModel
 import im.vector.app.features.home.room.detail.timeline.action.MessageActionsViewModel
 import im.vector.app.features.home.room.detail.timeline.edithistory.ViewEditHistoryViewModel
@@ -54,7 +47,6 @@ import im.vector.app.features.home.room.list.RoomListViewModel
 import im.vector.app.features.home.room.list.home.HomeRoomListViewModel
 import im.vector.app.features.home.room.list.home.invites.InvitesViewModel
 import im.vector.app.features.home.room.list.home.release.ReleaseNotesViewModel
-import im.vector.app.features.homeserver.HomeServerCapabilitiesViewModel
 import im.vector.app.features.invite.InviteUsersToRoomViewModel
 import im.vector.app.features.location.LocationSharingViewModel
 import im.vector.app.features.location.live.map.LiveLocationMapViewModel
@@ -81,6 +73,8 @@ import im.vector.app.features.roomprofile.banned.RoomBannedMemberListViewModel
 import im.vector.app.features.roomprofile.members.RoomMemberListViewModel
 import im.vector.app.features.roomprofile.notifications.RoomNotificationSettingsViewModel
 import im.vector.app.features.roomprofile.permissions.RoomPermissionsViewModel
+import im.vector.app.features.roomprofile.polls.RoomPollsViewModel
+import im.vector.app.features.roomprofile.polls.detail.ui.RoomPollDetailViewModel
 import im.vector.app.features.roomprofile.settings.RoomSettingsViewModel
 import im.vector.app.features.roomprofile.settings.joinrule.advanced.RoomJoinRuleChooseRestrictedViewModel
 import im.vector.app.features.roomprofile.uploads.RoomUploadsViewModel
@@ -88,6 +82,11 @@ import im.vector.app.features.settings.account.deactivation.DeactivateAccountVie
 import im.vector.app.features.settings.crosssigning.CrossSigningSettingsViewModel
 import im.vector.app.features.settings.devices.DeviceVerificationInfoBottomSheetViewModel
 import im.vector.app.features.settings.devices.DevicesViewModel
+import im.vector.app.features.settings.devices.v2.details.SessionDetailsViewModel
+import im.vector.app.features.settings.devices.v2.more.SessionLearnMoreViewModel
+import im.vector.app.features.settings.devices.v2.othersessions.OtherSessionsViewModel
+import im.vector.app.features.settings.devices.v2.overview.SessionOverviewViewModel
+import im.vector.app.features.settings.devices.v2.rename.RenameSessionViewModel
 import im.vector.app.features.settings.devtools.AccountDataViewModel
 import im.vector.app.features.settings.devtools.GossipingEventsPaperTrailViewModel
 import im.vector.app.features.settings.devtools.KeyRequestListViewModel
@@ -95,8 +94,11 @@ import im.vector.app.features.settings.devtools.KeyRequestViewModel
 import im.vector.app.features.settings.font.FontScaleSettingViewModel
 import im.vector.app.features.settings.homeserver.HomeserverSettingsViewModel
 import im.vector.app.features.settings.ignored.IgnoredUsersViewModel
+import im.vector.app.features.settings.labs.VectorSettingsLabsViewModel
 import im.vector.app.features.settings.legals.LegalsViewModel
 import im.vector.app.features.settings.locale.LocalePickerViewModel
+import im.vector.app.features.settings.notifications.VectorSettingsNotificationViewModel
+import im.vector.app.features.settings.notifications.VectorSettingsPushRuleNotificationViewModel
 import im.vector.app.features.settings.push.PushGatewaysViewModel
 import im.vector.app.features.settings.threepids.ThreePidsSettingsViewModel
 import im.vector.app.features.share.IncomingShareViewModel
@@ -353,6 +355,11 @@ interface MavericksViewModelModule {
 
     @Binds
     @IntoMap
+    @MavericksViewModelKey(im.vector.app.features.settings.devices.v2.DevicesViewModel::class)
+    fun devicesViewModelV2Factory(factory: im.vector.app.features.settings.devices.v2.DevicesViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
     @MavericksViewModelKey(KeyRequestListViewModel::class)
     fun keyRequestListViewModelFactory(factory: KeyRequestListViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
 
@@ -483,11 +490,6 @@ interface MavericksViewModelModule {
 
     @Binds
     @IntoMap
-    @MavericksViewModelKey(HomeServerCapabilitiesViewModel::class)
-    fun homeServerCapabilitiesViewModelFactory(factory: HomeServerCapabilitiesViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
-
-    @Binds
-    @IntoMap
     @MavericksViewModelKey(InviteUsersToRoomViewModel::class)
     fun inviteUsersToRoomViewModelFactory(factory: InviteUsersToRoomViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
 
@@ -501,15 +503,10 @@ interface MavericksViewModelModule {
     @MavericksViewModelKey(MessageActionsViewModel::class)
     fun messageActionsViewModelFactory(factory: MessageActionsViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
 
-    @Binds
-    @IntoMap
-    @MavericksViewModelKey(VerificationChooseMethodViewModel::class)
-    fun verificationChooseMethodViewModelFactory(factory: VerificationChooseMethodViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
-
-    @Binds
-    @IntoMap
-    @MavericksViewModelKey(VerificationEmojiCodeViewModel::class)
-    fun verificationEmojiCodeViewModelFactory(factory: VerificationEmojiCodeViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+//    @Binds
+//    @IntoMap
+//    @MavericksViewModelKey(VerificationChooseMethodViewModel::class)
+//    fun verificationChooseMethodViewModelFactory(factory: VerificationChooseMethodViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
 
     @Binds
     @IntoMap
@@ -581,10 +578,20 @@ interface MavericksViewModelModule {
     @MavericksViewModelKey(BootstrapSharedViewModel::class)
     fun bootstrapSharedViewModelFactory(factory: BootstrapSharedViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
 
+//    @Binds
+//    @IntoMap
+//    @MavericksViewModelKey(VerificationBottomSheetViewModel::class)
+//    fun verificationBottomSheetViewModelFactory(factory: VerificationBottomSheetViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+
     @Binds
     @IntoMap
-    @MavericksViewModelKey(VerificationBottomSheetViewModel::class)
-    fun verificationBottomSheetViewModelFactory(factory: VerificationBottomSheetViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+    @MavericksViewModelKey(UserVerificationViewModel::class)
+    fun userVerificationBottomSheetViewModelFactory(factory: UserVerificationViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
+    @MavericksViewModelKey(SelfVerificationViewModel::class)
+    fun selfVerificationBottomSheetViewModelFactory(factory: SelfVerificationViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
 
     @Binds
     @IntoMap
@@ -630,4 +637,73 @@ interface MavericksViewModelModule {
     @IntoMap
     @MavericksViewModelKey(ReleaseNotesViewModel::class)
     fun releaseNotesViewModel(factory: ReleaseNotesViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
+    @MavericksViewModelKey(SessionOverviewViewModel::class)
+    fun sessionOverviewViewModelFactory(factory: SessionOverviewViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
+    @MavericksViewModelKey(OtherSessionsViewModel::class)
+    fun otherSessionsViewModelFactory(factory: OtherSessionsViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
+    @MavericksViewModelKey(SessionDetailsViewModel::class)
+    fun sessionDetailsViewModelFactory(factory: SessionDetailsViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
+    @MavericksViewModelKey(RenameSessionViewModel::class)
+    fun renameSessionViewModelFactory(factory: RenameSessionViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
+    @MavericksViewModelKey(SessionLearnMoreViewModel::class)
+    fun sessionLearnMoreViewModelFactory(factory: SessionLearnMoreViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
+    @MavericksViewModelKey(VectorSettingsLabsViewModel::class)
+    fun vectorSettingsLabsViewModelFactory(factory: VectorSettingsLabsViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
+    @MavericksViewModelKey(AttachmentTypeSelectorViewModel::class)
+    fun attachmentTypeSelectorViewModelFactory(factory: AttachmentTypeSelectorViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
+    @MavericksViewModelKey(VectorSettingsNotificationViewModel::class)
+    fun vectorSettingsNotificationPreferenceViewModelFactory(
+            factory: VectorSettingsNotificationViewModel.Factory
+    ): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
+    @MavericksViewModelKey(VectorSettingsPushRuleNotificationViewModel::class)
+    fun vectorSettingsPushRuleNotificationPreferenceViewModelFactory(
+            factory: VectorSettingsPushRuleNotificationViewModel.Factory
+    ): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
+    @MavericksViewModelKey(SetLinkViewModel::class)
+    fun setLinkViewModelFactory(factory: SetLinkViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
+    @MavericksViewModelKey(RoomPollsViewModel::class)
+    fun roomPollsViewModelFactory(factory: RoomPollsViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
+    @MavericksViewModelKey(RoomPollDetailViewModel::class)
+    fun roomPollDetailViewModelFactory(factory: RoomPollDetailViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
+
+    @Binds
+    @IntoMap
+    @MavericksViewModelKey(NewHomeDetailViewModel::class)
+    fun newHomeDetailViewModelFactory(factory: NewHomeDetailViewModel.Factory): MavericksAssistedViewModelFactory<*, *>
 }

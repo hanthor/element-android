@@ -1,24 +1,17 @@
 /*
- * Copyright (c) 2021 New Vector Ltd
+ * Copyright 2021-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.ui.robot
 
 import android.view.View
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.espresso.action.ViewActions
 import androidx.test.espresso.action.ViewActions.click
@@ -37,8 +30,6 @@ import im.vector.app.espresso.tools.clickOnPreference
 import im.vector.app.espresso.tools.waitUntilActivityVisible
 import im.vector.app.espresso.tools.waitUntilDialogVisible
 import im.vector.app.espresso.tools.waitUntilViewVisible
-import im.vector.app.features.DefaultVectorFeatures
-import im.vector.app.features.VectorFeatures
 import im.vector.app.features.createdirect.CreateDirectRoomActivity
 import im.vector.app.features.home.HomeActivity
 import im.vector.app.features.onboarding.OnboardingActivity
@@ -46,13 +37,15 @@ import im.vector.app.features.settings.VectorSettingsActivity
 import im.vector.app.initialSyncIdlingResource
 import im.vector.app.ui.robot.settings.SettingsRobot
 import im.vector.app.ui.robot.settings.labs.LabFeature
+import im.vector.app.ui.robot.settings.labs.LabFeaturesPreferences
 import im.vector.app.ui.robot.space.SpaceRobot
 import im.vector.app.withIdlingResource
+import im.vector.lib.strings.CommonStrings
 import timber.log.Timber
 
-class ElementRobot {
-    private val features: VectorFeatures = DefaultVectorFeatures()
-
+class ElementRobot(
+        private val labsPreferences: LabFeaturesPreferences = LabFeaturesPreferences(true)
+) {
     fun onboarding(block: OnboardingRobot.() -> Unit) {
         block(OnboardingRobot())
     }
@@ -83,7 +76,7 @@ class ElementRobot {
     }
 
     fun settings(shouldGoBack: Boolean = true, block: SettingsRobot.() -> Unit) {
-        if (features.isNewAppLayoutEnabled()) {
+        if (labsPreferences.isNewAppLayoutEnabled) {
             onView(withId((R.id.avatar))).perform(click())
         } else {
             openDrawer()
@@ -95,8 +88,20 @@ class ElementRobot {
         waitUntilViewVisible(withId(R.id.roomListContainer))
     }
 
+    fun layoutPreferences(block: LayoutPreferencesRobot.() -> Unit) {
+        openActionBarOverflowOrOptionsMenu(
+                ApplicationProvider.getApplicationContext()
+        )
+        clickOn(CommonStrings.home_layout_preferences)
+        waitUntilDialogVisible(withId(R.id.home_layout_settings_recents))
+
+        block(LayoutPreferencesRobot())
+
+        pressBack()
+    }
+
     fun newDirectMessage(block: NewDirectMessageRobot.() -> Unit) {
-        if (features.isNewAppLayoutEnabled()) {
+        if (labsPreferences.isNewAppLayoutEnabled) {
             clickOn(R.id.newLayoutCreateChatButton)
             waitUntilDialogVisible(withId(R.id.start_chat))
             clickOn(R.id.start_chat)
@@ -111,29 +116,23 @@ class ElementRobot {
         closeSoftKeyboard()
         block(NewDirectMessageRobot())
         pressBack()
-        if (features.isNewAppLayoutEnabled()) {
-            pressBack() // close create dialog
-        }
         waitUntilViewVisible(withId(R.id.roomListContainer))
     }
 
     fun newRoom(block: NewRoomRobot.() -> Unit) {
-        if (!features.isNewAppLayoutEnabled()) {
+        if (!labsPreferences.isNewAppLayoutEnabled) {
             clickOn(R.id.bottom_action_rooms)
         }
-        RoomListRobot().newRoom { block() }
-        if (features.isNewAppLayoutEnabled()) {
-            pressBack() // close create dialog
-        }
+        RoomListRobot(labsPreferences).newRoom { block() }
         waitUntilViewVisible(withId(R.id.roomListContainer))
     }
 
     fun roomList(block: RoomListRobot.() -> Unit) {
-        if (!features.isNewAppLayoutEnabled()) {
+        if (!labsPreferences.isNewAppLayoutEnabled) {
             clickOn(R.id.bottom_action_rooms)
         }
 
-        block(RoomListRobot())
+        block(RoomListRobot(labsPreferences))
         waitUntilViewVisible(withId(R.id.roomListContainer))
     }
 
@@ -142,7 +141,7 @@ class ElementRobot {
             LabFeature.THREAD_MESSAGES -> {
                 settings(shouldGoBack = false) {
                     labs(shouldGoBack = false) {
-                        onView(withText(R.string.labs_enable_thread_messages))
+                        onView(withText(CommonStrings.labs_enable_thread_messages))
                                 .check(ViewAssertions.matches(isDisplayed()))
                                 .perform(ViewActions.closeSoftKeyboard(), click())
                     }
@@ -174,13 +173,13 @@ class ElementRobot {
     }
 
     fun signout(expectSignOutWarning: Boolean) {
-        if (features.isNewAppLayoutEnabled()) {
+        if (labsPreferences.isNewAppLayoutEnabled) {
             onView(withId((R.id.avatar)))
                     .perform(click())
             waitUntilActivityVisible<VectorSettingsActivity> {
-                clickOn(R.string.settings_general_title)
+                clickOn(CommonStrings.settings_general_title)
             }
-            clickOnPreference(R.string.action_sign_out)
+            clickOnPreference(CommonStrings.action_sign_out)
         } else {
             clickOn(R.id.groupToolbarAvatarImageView)
             clickOn(R.id.homeDrawerHeaderSignoutView)
@@ -224,7 +223,7 @@ class ElementRobot {
     }
 
     fun space(block: SpaceRobot.() -> Unit) {
-        block(SpaceRobot())
+        block(SpaceRobot(labsPreferences))
     }
 }
 

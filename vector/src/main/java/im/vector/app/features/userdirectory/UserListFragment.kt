@@ -1,17 +1,8 @@
 /*
- * Copyright (c) 2020 New Vector Ltd
+ * Copyright 2020-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.userdirectory
@@ -25,9 +16,9 @@ import android.view.ViewGroup
 import android.widget.ScrollView
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.withResumed
 import com.airbnb.mvrx.activityViewModel
 import com.airbnb.mvrx.args
-import com.airbnb.mvrx.fragmentViewModel
 import com.airbnb.mvrx.withState
 import com.google.android.material.chip.Chip
 import dagger.hilt.android.AndroidEntryPoint
@@ -42,11 +33,12 @@ import im.vector.app.core.utils.DimensionConverter
 import im.vector.app.core.utils.showIdentityServerConsentDialog
 import im.vector.app.core.utils.startSharePlainTextIntent
 import im.vector.app.databinding.FragmentUserListBinding
-import im.vector.app.features.homeserver.HomeServerCapabilitiesViewModel
 import im.vector.app.features.settings.VectorSettingsActivity
+import im.vector.lib.strings.CommonStrings
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.launch
 import org.matrix.android.sdk.api.session.identity.ThreePid
 import org.matrix.android.sdk.api.session.user.model.User
 import reactivecircus.flowbinding.android.widget.textChanges
@@ -63,7 +55,6 @@ class UserListFragment :
 
     private val args: UserListFragmentArgs by args()
     private val viewModel: UserListViewModel by activityViewModel()
-    private val homeServerCapabilitiesViewModel: HomeServerCapabilitiesViewModel by fragmentViewModel()
     private lateinit var sharedActionViewModel: UserListSharedActionViewModel
 
     override fun getBinding(inflater: LayoutInflater, container: ViewGroup?): FragmentUserListBinding {
@@ -86,7 +77,7 @@ class UserListFragment :
         setupRecyclerView()
         setupSearchView()
 
-        homeServerCapabilitiesViewModel.onEach {
+        viewModel.onEach {
             views.userListE2EbyDefaultDisabled.isVisible = !it.isE2EByDefault
         }
 
@@ -97,13 +88,13 @@ class UserListFragment :
         viewModel.observeViewEvents {
             when (it) {
                 is UserListViewEvents.OpenShareMatrixToLink -> {
-                    val text = getString(R.string.invite_friends_text, it.link)
+                    val text = getString(CommonStrings.invite_friends_text, it.link)
                     startSharePlainTextIntent(
                             context = requireContext(),
                             activityResultLauncher = null,
-                            chooserTitle = getString(R.string.invite_friends),
+                            chooserTitle = getString(CommonStrings.invite_friends),
                             text = text,
-                            extraTitle = getString(R.string.invite_friends_rich_title)
+                            extraTitle = getString(CommonStrings.invite_friends_rich_title)
                     )
                 }
                 is UserListViewEvents.Failure -> showFailure(it.throwable)
@@ -177,8 +168,10 @@ class UserListFragment :
 
         // Scroll to the bottom when adding chips. When removing chips, do not scroll
         if (newNumberOfChips >= currentNumberOfChips) {
-            viewLifecycleOwner.lifecycleScope.launchWhenResumed {
-                views.chipGroupScrollView.fullScroll(ScrollView.FOCUS_DOWN)
+            viewLifecycleOwner.lifecycleScope.launch {
+                withResumed {
+                    views.chipGroupScrollView.fullScroll(ScrollView.FOCUS_DOWN)
+                }
             }
         }
     }

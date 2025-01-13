@@ -28,6 +28,7 @@ import org.matrix.android.sdk.internal.di.SessionDatabase
 import org.matrix.android.sdk.internal.di.SessionId
 import org.matrix.android.sdk.internal.di.WorkManagerProvider
 import org.matrix.android.sdk.internal.session.pushers.gateway.PushGatewayNotifyTask
+import org.matrix.android.sdk.internal.session.workmanager.WorkManagerConfig
 import org.matrix.android.sdk.internal.task.TaskExecutor
 import org.matrix.android.sdk.internal.task.configureWith
 import org.matrix.android.sdk.internal.worker.WorkerParamsFactory
@@ -42,8 +43,10 @@ internal class DefaultPushersService @Inject constructor(
         private val getPusherTask: GetPushersTask,
         private val pushGatewayNotifyTask: PushGatewayNotifyTask,
         private val addPusherTask: AddPusherTask,
+        private val togglePusherTask: TogglePusherTask,
         private val removePusherTask: RemovePusherTask,
-        private val taskExecutor: TaskExecutor
+        private val taskExecutor: TaskExecutor,
+        private val workManagerConfig: WorkManagerConfig,
 ) : PushersService {
 
     override suspend fun testPush(
@@ -78,7 +81,9 @@ internal class DefaultPushersService @Inject constructor(
             appDisplayName = appDisplayName,
             deviceDisplayName = deviceDisplayName,
             data = JsonPusherData(url, EVENT_ID_ONLY.takeIf { withEventIdOnly }),
-            append = append
+            append = append,
+            enabled = enabled,
+            deviceId = deviceId,
     )
 
     override suspend fun addEmailPusher(
@@ -106,10 +111,28 @@ internal class DefaultPushersService @Inject constructor(
         )
     }
 
+    override suspend fun togglePusher(pusher: Pusher, enable: Boolean) {
+        togglePusherTask.execute(TogglePusherTask.Params(pusher.toJsonPusher(), enable))
+    }
+
+    private fun Pusher.toJsonPusher() = JsonPusher(
+            pushKey = pushKey,
+            kind = kind,
+            appId = appId,
+            appDisplayName = appDisplayName,
+            deviceDisplayName = deviceDisplayName,
+            profileTag = profileTag,
+            lang = lang,
+            data = JsonPusherData(data.url, data.format),
+            append = false,
+            enabled = enabled,
+            deviceId = deviceId,
+    )
+
     private fun enqueueAddPusher(pusher: JsonPusher): UUID {
         val params = AddPusherWorker.Params(sessionId, pusher)
         val request = workManagerProvider.matrixOneTimeWorkRequestBuilder<AddPusherWorker>()
-                .setConstraints(WorkManagerProvider.workConstraints)
+                .setConstraints(WorkManagerProvider.getWorkConstraints(workManagerConfig))
                 .setInputData(WorkerParamsFactory.toData(params))
                 .setBackoffCriteria(BackoffPolicy.LINEAR, WorkManagerProvider.BACKOFF_DELAY_MILLIS, TimeUnit.MILLISECONDS)
                 .build()

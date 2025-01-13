@@ -1,22 +1,12 @@
 /*
- * Copyright (c) 2022 New Vector Ltd
+ * Copyright 2022-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.core.pushers
 
-import android.app.Activity
 import im.vector.app.core.di.ActiveSessionHolder
 
 interface FcmHelper {
@@ -39,11 +29,10 @@ interface FcmHelper {
     /**
      * onNewToken may not be called on application upgrade, so ensure my shared pref is set.
      *
-     * @param activity the first launch Activity.
      * @param pushersManager the instance to register the pusher on.
      * @param registerPusher whether the pusher should be registered.
      */
-    fun ensureFcmTokenIsRetrieved(activity: Activity, pushersManager: PushersManager, registerPusher: Boolean)
+    fun ensureFcmTokenIsRetrieved(pushersManager: PushersManager, registerPusher: Boolean)
 
     fun onEnterForeground(activeSessionHolder: ActiveSessionHolder)
 

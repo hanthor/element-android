@@ -1,17 +1,8 @@
 /*
- * Copyright 2019 New Vector Ltd
+ * Copyright 2019-2024 New Vector Ltd.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Please see LICENSE in the repository root for full details.
  */
 
 package im.vector.app.features.configuration
@@ -22,7 +13,7 @@ import android.os.Build
 import android.os.LocaleList
 import androidx.annotation.RequiresApi
 import im.vector.app.features.settings.FontScalePreferences
-import im.vector.app.features.settings.VectorLocale
+import im.vector.app.features.settings.VectorLocaleProvider
 import im.vector.app.features.themes.ThemeUtils
 import timber.log.Timber
 import java.util.Locale
@@ -33,21 +24,22 @@ import javax.inject.Inject
  */
 class VectorConfiguration @Inject constructor(
         private val context: Context,
-        private val fontScalePreferences: FontScalePreferences
+        private val fontScalePreferences: FontScalePreferences,
+        private val vectorLocale: VectorLocaleProvider,
 ) {
 
     fun onConfigurationChanged() {
-        if (Locale.getDefault().toString() != VectorLocale.applicationLocale.toString()) {
+        if (Locale.getDefault().toString() != vectorLocale.applicationLocale.toString()) {
             Timber.v("## onConfigurationChanged(): the locale has been updated to ${Locale.getDefault()}")
-            Timber.v("## onConfigurationChanged(): restore the expected value ${VectorLocale.applicationLocale}")
-            Locale.setDefault(VectorLocale.applicationLocale)
+            Timber.v("## onConfigurationChanged(): restore the expected value ${vectorLocale.applicationLocale}")
+            Locale.setDefault(vectorLocale.applicationLocale)
         }
         // Night mode may have changed
         ThemeUtils.init(context)
     }
 
     fun applyToApplicationContext() {
-        val locale = VectorLocale.applicationLocale
+        val locale = vectorLocale.applicationLocale
         val fontScale = fontScalePreferences.getResolvedFontScaleValue()
 
         Locale.setDefault(locale)
@@ -67,7 +59,7 @@ class VectorConfiguration @Inject constructor(
      */
     fun getLocalisedContext(context: Context): Context {
         try {
-            val locale = VectorLocale.applicationLocale
+            val locale = vectorLocale.applicationLocale
 
             // create new configuration passing old configuration from original Context
             val configuration = Configuration(context.resources.configuration)
@@ -107,7 +99,7 @@ class VectorConfiguration @Inject constructor(
      * @return the local status value
      */
     fun getHash(): String {
-        return (VectorLocale.applicationLocale.toString() +
+        return (vectorLocale.applicationLocale.toString() +
                 "_" + fontScalePreferences.getResolvedFontScaleValue().preferenceValue +
                 "_" + ThemeUtils.getApplicationTheme(context))
     }
